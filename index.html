@@ -1,0 +1,2225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Herramientas GID — Cruzas e Inventario</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+
+  :root{
+    --paper:#F1EFE6; --card:#FFFFFF; --ink:#232620; --ink-soft:#5B5A4E;
+    --line:#DAD6C6; --moss:#3F6B4A; --moss-dark:#2E4F37; --clay:#9C5A3C; --gold:#B8902E;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:'Inter',system-ui,sans-serif; line-height:1.5;}
+  .wrap{max-width:860px; margin:0 auto; padding:40px 24px 64px;}
+  h1{font-family:'Lora',serif; font-weight:600; font-size:1.7rem; margin:0 0 6px;}
+  .subtitle{color:var(--ink-soft); font-size:0.95rem; margin:0 0 36px; max-width:64ch;}
+  .step{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:20px 22px; margin-bottom:16px;}
+  .step-head{display:flex; align-items:baseline; gap:12px; margin-bottom:4px;}
+  .step-num{font-family:'Lora',serif; font-weight:600; color:var(--moss); font-size:1.05rem; flex-shrink:0;}
+  .step-title{font-weight:600; font-size:1rem;}
+  .step-hint{color:var(--ink-soft); font-size:0.85rem; margin:2px 0 14px 28px;}
+  .drop{margin-left:28px; border:1.5px dashed var(--line); border-radius:8px; padding:16px 18px;
+    display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer;
+    transition:border-color .15s, background .15s;}
+  .drop:hover, .drop.drag{border-color:var(--moss); background:#F7F8F2;}
+  .drop.filled{border-style:solid; border-color:var(--moss);}
+  .drop-label{font-size:0.9rem; color:var(--ink-soft);}
+  .drop-label b{color:var(--ink); font-weight:500;}
+  .drop input{display:none;}
+  .pick-btn{font-family:'Inter',sans-serif; font-size:0.82rem; font-weight:500; background:var(--paper);
+    border:1px solid var(--line); color:var(--ink); padding:6px 12px; border-radius:6px; white-space:nowrap;}
+  .run-row{margin-top:24px; display:flex; align-items:center; gap:16px;}
+  button.primary{font-family:'Inter',sans-serif; font-weight:600; font-size:0.95rem; background:var(--moss);
+    color:#fff; border:none; border-radius:8px; padding:12px 26px; cursor:pointer; transition:background .15s;}
+  button.primary:hover:not(:disabled){background:var(--moss-dark);}
+  button.primary:disabled{background:#B9C4B7; cursor:not-allowed;}
+  .status{font-size:0.88rem; color:var(--ink-soft);}
+  .log-panel{margin-top:24px; display:none;}
+  .log-panel.show{display:block;}
+  .log-title{font-weight:600; font-size:0.9rem; margin-bottom:8px;}
+  #log{font-family:'IBM Plex Mono',monospace; font-size:0.8rem; line-height:1.6; background:#1D211C;
+    color:#DCE3D8; border-radius:8px; padding:14px 16px; max-height:220px; overflow-y:auto; white-space:pre-wrap;}
+  .log-line.warn{color:#E8C36B;}
+  .log-line.err{color:#E39A88;}
+  .log-line.ok{color:#8FCB9A;}
+  .log-line.muted{color:#8B9086;}
+
+  #review-panel{margin-top:24px; display:none;}
+  #review-panel.show{display:block;}
+  #review-panel-foliar{margin-top:24px; display:none;}
+  #review-panel-foliar.show{display:block;}
+  .review-head{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:6px;}
+  .review-title{font-weight:600; font-size:0.95rem;}
+  .review-hint{font-size:0.82rem; color:var(--ink-soft); margin:0 0 12px;}
+  .bulk-actions button{font-family:'Inter',sans-serif; font-size:0.78rem; font-weight:500; background:var(--card);
+    border:1px solid var(--line); color:var(--ink); padding:6px 12px; border-radius:6px; cursor:pointer;}
+  .bulk-actions button:hover{border-color:var(--moss);}
+  .pairs-table-wrap{border:1px solid var(--line); border-radius:8px; overflow:auto; max-height:360px;}
+  table.pairs-table{width:100%; border-collapse:collapse; font-size:0.83rem;}
+  .pairs-table thead th{position:sticky; top:0; background:#F7F5EC; text-align:left; padding:8px 10px;
+    border-bottom:1px solid var(--line); font-weight:600; font-size:0.74rem; text-transform:uppercase;
+    letter-spacing:0.03em; color:var(--ink-soft);}
+  .pairs-table td{padding:7px 10px; border-bottom:1px solid #EEEBDF; font-family:'IBM Plex Mono',monospace;}
+  .pairs-table tr.anomaly{background:#FBEFE3;}
+  .pairs-table tr.anomaly td{color:var(--clay);}
+  .pairs-table input[type=number]{
+    width:56px; font-family:'IBM Plex Mono',monospace; font-size:0.83rem; padding:4px 6px;
+    border-radius:6px; border:1px solid var(--line); background:#fff; color:var(--ink);
+  }
+  .totals-row{display:flex; justify-content:space-between; align-items:center; margin-top:14px; font-size:0.88rem;}
+  #total-rows{font-weight:600; color:var(--moss-dark);}
+  .download-box{margin-top:16px; padding:16px 20px; border-radius:8px; background:#EAF1E9; border:1px solid #C9DCC7;
+    display:none; align-items:center; justify-content:space-between; gap:16px;}
+  .download-box.show{display:flex;}
+  .download-box .msg{font-size:0.9rem;}
+  .download-box .msg b{display:block; font-size:0.98rem; margin-bottom:2px;}
+  #download-link, #download-link-foliar{font-family:'Inter',sans-serif; font-weight:600; font-size:0.88rem; background:var(--moss);
+    color:#fff; text-decoration:none; padding:10px 18px; border-radius:7px; white-space:nowrap;}
+  footer{margin-top:40px; font-size:0.78rem; color:var(--ink-soft);}
+
+  /* --- estilos propios de Inventario (algunos se repiten, no pasa nada) --- */
+
+  :root{
+    --paper:#F1EFE6; --card:#FFFFFF; --ink:#232620; --ink-soft:#5B5A4E;
+    --line:#DAD6C6; --moss:#3F6B4A; --moss-dark:#2E4F37; --clay:#9C5A3C; --gold:#B8902E;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:'Inter',system-ui,sans-serif; line-height:1.5;}
+  .wrap{max-width:820px; margin:0 auto; padding:40px 24px 64px;}
+  h1{font-family:'Lora',serif; font-weight:600; font-size:1.7rem; margin:0 0 6px;}
+  .subtitle{color:var(--ink-soft); font-size:0.95rem; margin:0 0 36px; max-width:64ch;}
+  .step{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:20px 22px; margin-bottom:16px;}
+  .step-head{display:flex; align-items:baseline; gap:12px; margin-bottom:4px;}
+  .step-num{font-family:'Lora',serif; font-weight:600; color:var(--moss); font-size:1.05rem; flex-shrink:0;}
+  .step-title{font-weight:600; font-size:1rem;}
+  .step-hint{color:var(--ink-soft); font-size:0.85rem; margin:2px 0 14px 28px;}
+  .drop{margin-left:28px; border:1.5px dashed var(--line); border-radius:8px; padding:16px 18px;
+    display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer;
+    transition:border-color .15s, background .15s;}
+  .drop:hover, .drop.drag{border-color:var(--moss); background:#F7F8F2;}
+  .drop.filled{border-style:solid; border-color:var(--moss);}
+  .drop-label{font-size:0.9rem; color:var(--ink-soft);}
+  .drop-label b{color:var(--ink); font-weight:500;}
+  .drop input{display:none;}
+  .pick-btn{font-family:'Inter',sans-serif; font-size:0.82rem; font-weight:500; background:var(--paper);
+    border:1px solid var(--line); color:var(--ink); padding:6px 12px; border-radius:6px; white-space:nowrap;}
+  .run-row{margin-top:24px; display:flex; align-items:center; gap:16px;}
+  button.primary{font-family:'Inter',sans-serif; font-weight:600; font-size:0.95rem; background:var(--moss);
+    color:#fff; border:none; border-radius:8px; padding:12px 26px; cursor:pointer; transition:background .15s;}
+  button.primary:hover:not(:disabled){background:var(--moss-dark);}
+  button.primary:disabled{background:#B9C4B7; cursor:not-allowed;}
+  .status{font-size:0.88rem; color:var(--ink-soft);}
+  .log-panel{margin-top:24px; display:none;}
+  .log-panel.show{display:block;}
+  .log-title{font-weight:600; font-size:0.9rem; margin-bottom:8px;}
+  #log{font-family:'IBM Plex Mono',monospace; font-size:0.8rem; line-height:1.6; background:#1D211C;
+    color:#DCE3D8; border-radius:8px; padding:14px 16px; max-height:260px; overflow-y:auto; white-space:pre-wrap;}
+  .log-line.warn{color:#E8C36B;}
+  .log-line.err{color:#E39A88;}
+  .log-line.ok{color:#8FCB9A;}
+  .log-line.muted{color:#8B9086;}
+  .download-box{margin-top:16px; padding:16px 20px; border-radius:8px; background:#EAF1E9; border:1px solid #C9DCC7;
+    display:none; align-items:center; justify-content:space-between; gap:16px;}
+  .download-box.show{display:flex;}
+  .download-box .msg{font-size:0.9rem;}
+  .download-box .msg b{display:block; font-size:0.98rem; margin-bottom:2px;}
+  #download-link{font-family:'Inter',sans-serif; font-weight:600; font-size:0.88rem; background:var(--moss);
+    color:#fff; text-decoration:none; padding:10px 18px; border-radius:7px; white-space:nowrap;}
+  footer{margin-top:40px; font-size:0.78rem; color:var(--ink-soft);}
+
+
+  .tab-nav{max-width:860px; margin:0 auto; padding:24px 24px 0; display:flex; gap:8px;}
+  .tab-btn{font-family:'Inter',sans-serif; font-weight:600; font-size:0.9rem; background:transparent;
+    border:none; border-bottom:3px solid transparent; color:var(--ink-soft); padding:10px 4px; margin-right:20px;
+    cursor:pointer; transition:color .15s, border-color .15s;}
+  .tab-btn:hover{color:var(--ink);}
+  .tab-btn.active{color:var(--moss-dark); border-bottom-color:var(--moss);}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+
+</style>
+</head>
+<body>
+<div class="tab-nav">
+  <button class="tab-btn active" data-tab="tab-cruzas" type="button">Cruzas</button>
+  <button class="tab-btn" data-tab="tab-inventario" type="button">Inventario inicial</button>
+  <button class="tab-btn" data-tab="tab-gidgen" type="button">GID generado</button>
+</div>
+
+<div class="wrap tab-panel active" id="tab-cruzas">
+  <h1>Generador de Crossing Template</h1>
+  <p class="subtitle">Sube los 3 archivos del vivero. El libro de campo sigue siendo el que da el plot number (PLOT_CODE → PLOT_NO). Lo que cambió es el reporte que antes era "BulkScan" (hojas GID-MAZ/GID-FOLIAR): ahora es un solo archivo con una fila por planta/individuo, con el par hembra/macho, el número de planta y el tipo de muestra (MF = foliar, Normal = mazorca). Mazorca y foliar se separan solas por la columna Type y generan Crossing Templates distintos. Todo corre en tu navegador — ningún archivo se envía a ningún servidor.</p>
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">1</span><span class="step-title">Libro de campo</span></div>
+    <div class="step-hint">El archivo con la hoja "Observation" (PLOT_CODE, PLOT_NO, PLANT_NO, etc.)</div>
+    <label class="drop" id="drop-obs">
+      <span class="drop-label" id="label-obs"><b>Arrastra o elige el archivo</b></span>
+      <span class="pick-btn">Elegir archivo</span>
+      <input type="file" id="file-obs" accept=".xlsx">
+    </label>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">2</span><span class="step-title">Archivo de cruzas</span></div>
+    <div class="step-hint">El archivo con PLOT_CODE_FEM, PLOT_CODE_MALE, PLANT y Type (MF / Normal) — reemplaza al reporte de GIDs (BulkScan)</div>
+    <label class="drop" id="drop-cruzas">
+      <span class="drop-label" id="label-cruzas"><b>Arrastra o elige el archivo</b></span>
+      <span class="pick-btn">Elegir archivo</span>
+      <input type="file" id="file-cruzas" accept=".xlsx">
+    </label>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">3</span><span class="step-title">Crossing Template en blanco</span></div>
+    <div class="step-hint">El template de BMS que se va a llenar (no se modifica ninguna otra hoja)</div>
+    <label class="drop" id="drop-tpl">
+      <span class="drop-label" id="label-tpl"><b>Arrastra o elige el archivo</b></span>
+      <span class="pick-btn">Elegir archivo</span>
+      <input type="file" id="file-tpl" accept=".xlsx">
+    </label>
+  </div>
+
+  <div class="run-row">
+    <button class="primary" id="analyze" disabled>Analizar cruzas</button>
+    <span class="status" id="status">Sube los 3 archivos para continuar</span>
+  </div>
+
+  <div id="log-panel" class="log-panel">
+    <div class="log-title">Registro</div>
+    <div id="log"></div>
+  </div>
+
+  <div id="review-panel">
+    <div class="review-head">
+      <div class="review-title">Cruzas de mazorca (grano) — filas "Normal" del archivo de cruzas</div>
+      <div class="bulk-actions">
+        <button id="mark-all-bulk" type="button">Marcar todas Bulk (1 fila)</button>
+        <button id="reset-overrides" type="button">Resetear a lo detectado</button>
+      </div>
+    </div>
+    <div class="review-hint">"Filas detectadas" = cuántas filas individuales trae el archivo de cruzas para ese par hembra/macho. El plot number sale del libro de campo (PLOT_CODE → PLOT_NO). Puedes ajustar "Filas a generar" para usar menos — se toman las de menor número de planta primero. En naranja: el GID de hembra o macho no aparece en el libro de campo, o el plot number declarado en el archivo de cruzas no coincide con el del libro de campo (revisar).</div>
+    <div class="pairs-table-wrap">
+      <table class="pairs-table" id="pairs-table">
+        <thead><tr><th>Hembra</th><th>Macho</th><th>Filas detectadas</th><th>Filas a generar</th></tr></thead>
+        <tbody id="pairs-tbody"></tbody>
+      </table>
+    </div>
+    <div class="totals-row">
+      <span>Filas que se generarán: <span id="total-rows">0</span></span>
+      <button class="primary" id="generate">Generar Crossing Template (mazorca)</button>
+    </div>
+    <div id="download-box" class="download-box">
+      <div class="msg"><b id="dl-title"></b><span id="dl-sub"></span></div>
+      <a id="download-link" href="#">Descargar archivo</a>
+    </div>
+  </div>
+
+  <div id="review-panel-foliar">
+    <div class="review-head">
+      <div class="review-title">Cruzas de muestra foliar — proceso aparte</div>
+      <div class="bulk-actions">
+        <button id="mark-all-bulk-foliar" type="button">Marcar todas Bulk (1 fila)</button>
+        <button id="reset-overrides-foliar" type="button">Resetear a lo detectado</button>
+      </div>
+    </div>
+    <div class="review-hint">Estas cruzas salen de las filas "MF" del archivo de cruzas, no de las "Normal" — se generan como un Crossing Template totalmente separado, para no mezclar los dos procesos.</div>
+    <div class="pairs-table-wrap">
+      <table class="pairs-table" id="pairs-table-foliar">
+        <thead><tr><th>Hembra</th><th>Macho</th><th>Filas detectadas</th><th>Filas a generar</th></tr></thead>
+        <tbody id="pairs-tbody-foliar"></tbody>
+      </table>
+    </div>
+    <div class="totals-row">
+      <span>Filas que se generarán: <span id="total-rows-foliar">0</span></span>
+      <button class="primary" id="generate-foliar">Generar Crossing Template (foliar)</button>
+    </div>
+    <div id="download-box-foliar" class="download-box">
+      <div class="msg"><b id="dl-title-foliar"></b><span id="dl-sub-foliar"></span></div>
+      <a id="download-link-foliar" href="#">Descargar archivo</a>
+    </div>
+  </div>
+
+  <footer>El diseño del Crossing Template (colores, columnas, otras hojas) se conserva tal cual — solo se llenan FEMALE PLOT, MALE PLOT y NOTES (con el texto de Plot_in_trial de cada fila). Las dos secciones (mazorca y foliar) generan archivos separados a propósito.</footer>
+</div>
+
+
+<div class="wrap tab-panel" id="tab-inventario">
+  <h1>Llenado de Inventario en Libro de Campo</h1>
+  <p class="subtitle">Sube el inventario inicial y el libro de campo. Se marca Total_Psample = 1 para las filas "Muestreo foliar" y NPSEL = 1 para las "Normal", cruzando por OBS_UNIT_ID — y se avisa si algún OBS_UNIT_ID del inventario no aparece en el libro de campo. Todo corre en tu navegador, ningún archivo se envía a ningún servidor.</p>
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">1</span><span class="step-title">Inventario inicial</span></div>
+    <div class="step-hint">El archivo con OBS_UNIT_ID, PLANTA, Type (Muestreo foliar / Normal), PLOT_CODE, # MAZ</div>
+    <label class="drop" id="drop-inv">
+      <span class="drop-label" id="label-inv"><b>Arrastra o elige el archivo</b></span>
+      <span class="pick-btn">Elegir archivo</span>
+      <input type="file" id="file-inv" accept=".xlsx">
+    </label>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">2</span><span class="step-title">Libro de campo</span></div>
+    <div class="step-hint">El archivo con la hoja "Observation" que se va a llenar (OBS_UNIT_ID, PLOT_CODE, Total_Psample, NPSEL, etc.)</div>
+    <label class="drop" id="drop-obs2">
+      <span class="drop-label" id="label-obs2"><b>Arrastra o elige el archivo</b></span>
+      <span class="pick-btn">Elegir archivo</span>
+      <input type="file" id="file-obs2" accept=".xlsx">
+    </label>
+  </div>
+
+  <div class="run-row">
+    <button class="primary" id="run" disabled>Llenar libro de campo</button>
+    <span class="status" id="status2">Sube los 2 archivos para continuar</span>
+  </div>
+
+  <div id="log-panel2" class="log-panel">
+    <div class="log-title">Registro</div>
+    <div id="log2"></div>
+    <div class="download-box" id="download-box2">
+      <div class="msg"><b id="dl-title2"></b><span id="dl-sub2"></span></div>
+      <a id="download-link2" href="#">Descargar archivo</a>
+    </div>
+  </div>
+
+  <footer>Solo se llenan las columnas Total_Psample y NPSEL en la hoja Observation, por OBS_UNIT_ID. El resto del libro de campo (todas las demás columnas, formato, otras hojas) se conserva tal cual.</footer>
+</div>
+
+
+<div class="wrap tab-panel" id="tab-gidgen">
+  <h1>GID generado (inventario final)</h1>
+  <p class="subtitle">Sube el inventario, el libro de campo (para validar), y los 2 archivos de labels que BMS generó al crear los GID. Se agregan las columnas GID_GENERADO y GUID_GENERADO al inventario, en el orden real de asignación (por PLOT_CODE y número de planta) — y se valida cada fila contra el Immediate Source GID. Todo corre en tu navegador.</p>
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">1</span><span class="step-title">Inventario inicial</span></div>
+    <div class="step-hint">El archivo con OBS_UNIT_ID, PLANTA, Type, PLOT_CODE (puede ya traer Total_Psample/NPSEL, no importa)</div>
+    <label class="drop" id="g3-drop-inv">
+      <span class="drop-label" id="g3-label-inv"><b>Arrastra o elige el archivo</b></span>
+      <span class="pick-btn">Elegir archivo</span>
+      <input type="file" id="g3-file-inv" accept=".xlsx">
+    </label>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">2</span><span class="step-title">Libro de campo</span></div>
+    <div class="step-hint">Se usa solo para validar: PLOT_CODE → GID, comparado contra "Immediate Source GID" de los labels</div>
+    <label class="drop" id="g3-drop-obs">
+      <span class="drop-label" id="g3-label-obs"><b>Arrastra o elige el archivo</b></span>
+      <span class="pick-btn">Elegir archivo</span>
+      <input type="file" id="g3-file-obs" accept=".xlsx">
+    </label>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">3</span><span class="step-title">Labels — Foliar</span></div>
+    <div class="step-hint">El archivo de labels con los GID nuevos de las muestras foliares (columnas GID, GUID, Immediate Source GID)</div>
+    <label class="drop" id="g3-drop-foliar">
+      <span class="drop-label" id="g3-label-foliar"><b>Arrastra o elige el archivo</b></span>
+      <span class="pick-btn">Elegir archivo</span>
+      <input type="file" id="g3-file-foliar" accept=".xlsx">
+    </label>
+  </div>
+
+  <div class="step">
+    <div class="step-head"><span class="step-num">4</span><span class="step-title">Labels — Normal</span></div>
+    <div class="step-hint">El archivo de labels con los GID nuevos de las muestras normales</div>
+    <label class="drop" id="g3-drop-normal">
+      <span class="drop-label" id="g3-label-normal"><b>Arrastra o elige el archivo</b></span>
+      <span class="pick-btn">Elegir archivo</span>
+      <input type="file" id="g3-file-normal" accept=".xlsx">
+    </label>
+  </div>
+
+  <div class="run-row">
+    <button class="primary" id="g3-run" disabled>Generar inventario final</button>
+    <span class="status" id="g3-status">Sube los 4 archivos para continuar</span>
+  </div>
+
+  <div id="g3-log-panel" class="log-panel">
+    <div class="log-title">Registro</div>
+    <div id="g3-log"></div>
+    <div class="download-box" id="g3-download-box">
+      <div class="msg"><b id="g3-dl-title"></b><span id="g3-dl-sub"></span></div>
+      <a id="g3-download-link" href="#">Descargar archivo</a>
+    </div>
+  </div>
+
+  <footer>Se agregan (o sobrescriben) GID_GENERADO y GUID_GENERADO al inventario. El orden de asignación es por PLOT_CODE y número de planta ascendente dentro de cada plot — así fue como BMS los generó.</footer>
+</div>
+
+
+
+<script>
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+  });
+});
+</script>
+
+<script>
+(function(){
+
+const files = { obs: null, cruzas: null, tpl: null };
+
+function wireDrop(key, inputId, dropId, labelId) {
+  const drop = document.getElementById(dropId);
+  const input = document.getElementById(inputId);
+  const label = document.getElementById(labelId);
+  const setFile = (f) => {
+    if (!f) return;
+    files[key] = f;
+    label.innerHTML = '<b>' + f.name + '</b>';
+    drop.classList.add('filled');
+    updateAnalyzeState();
+  };
+  input.addEventListener('change', e => setFile(e.target.files[0]));
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault(); drop.classList.remove('drag');
+    if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+  });
+}
+wireDrop('obs', 'file-obs', 'drop-obs', 'label-obs');
+wireDrop('cruzas', 'file-cruzas', 'drop-cruzas', 'label-cruzas');
+wireDrop('tpl', 'file-tpl', 'drop-tpl', 'label-tpl');
+
+const analyzeBtn = document.getElementById('analyze');
+const generateBtn = document.getElementById('generate');
+const statusEl = document.getElementById('status');
+function updateAnalyzeState() {
+  const ready = files.obs && files.cruzas && files.tpl;
+  analyzeBtn.disabled = !ready;
+  statusEl.textContent = ready ? 'Listo para analizar' : 'Sube los 3 archivos para continuar';
+}
+
+const logPanel = document.getElementById('log-panel');
+const logEl = document.getElementById('log');
+function log(msg, cls) {
+  const line = document.createElement('div');
+  line.className = 'log-line' + (cls ? ' ' + cls : '');
+  line.textContent = msg;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+function resetLog() {
+  logEl.innerHTML = '';
+  logPanel.classList.add('show');
+  document.getElementById('review-panel').classList.remove('show');
+  document.getElementById('download-box').classList.remove('show');
+  document.getElementById('review-panel-foliar').classList.remove('show');
+  document.getElementById('download-box-foliar').classList.remove('show');
+}
+
+// ---- logica del pipeline (misma que el script de Python), portada a JS ----
+function normalize(name) { return String(name).replace(/[\s\-_().]+/g, '').toUpperCase(); }
+
+function findSheet(workbook, candidates) {
+  const map = {};
+  workbook.worksheets.forEach(ws => { map[normalize(ws.name)] = ws; });
+  for (const cand of candidates) {
+    const key = normalize(cand);
+    if (map[key]) return map[key];
+  }
+  return null;
+}
+
+function findHeaderRow(ws, requiredCols, maxScan = 20) {
+  const limit = Math.min(maxScan, ws.rowCount || maxScan);
+  const normReq = requiredCols.map(normalize);
+  for (let r = 1; r <= limit; r++) {
+    const row = ws.getRow(r);
+    const colMap = {};
+    row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+      if (cell.value !== null && cell.value !== undefined && cell.value !== '') {
+        colMap[normalize(cell.value)] = colNumber;
+      }
+    });
+    if (normReq.every(rc => rc in colMap)) return { headerRow: r, col: colMap };
+  }
+  return { headerRow: null, col: null };
+}
+function getCol(col, name) { return col[normalize(name)]; }
+
+function cellVal(ws, r, c) {
+  const v = ws.getRow(r).getCell(c).value;
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'object' && v.result !== undefined) return v.result;
+  return v;
+}
+
+async function loadWorkbookFromFile(file) {
+  const buf = await file.arrayBuffer();
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buf);
+  return wb;
+}
+
+// Libro de campo: sigue siendo la fuente del plot number (PLOT_CODE -> PLOT_NO).
+function loadPlotLookup(wb) {
+  const ws = findSheet(wb, ['Observation']);
+  if (!ws) throw new Error('No encontré una hoja "Observation" en el libro de campo.');
+  const { headerRow, col } = findHeaderRow(ws, ['PLOT_CODE', 'PLOT_NO']);
+  if (!headerRow) throw new Error('No encontré columnas PLOT_CODE / PLOT_NO en la hoja Observation.');
+  const codeCol = getCol(col, 'PLOT_CODE'), noCol = getCol(col, 'PLOT_NO');
+
+  const plotToNo = {};
+  const inconsistent = {};
+  for (let r = headerRow + 1; r <= ws.rowCount; r++) {
+    const code = cellVal(ws, r, codeCol);
+    const no = cellVal(ws, r, noCol);
+    if (code === null) continue;
+    const key = String(code).trim().toUpperCase();
+    if (key in plotToNo && plotToNo[key] !== no) {
+      inconsistent[key] = inconsistent[key] || new Set([plotToNo[key]]);
+      inconsistent[key].add(no);
+    }
+    plotToNo[key] = no;
+  }
+  log(`Libro de campo: ${Object.keys(plotToNo).length} códigos de plot únicos cargados.`);
+  const badKeys = Object.keys(inconsistent);
+  if (badKeys.length) {
+    log(`AVISO: ${badKeys.length} PLOT_CODE con más de un PLOT_NO distinto (se usó el último encontrado):`, 'warn');
+    badKeys.forEach(k => log(`   ${k}: ${[...inconsistent[k]].join(', ')}`, 'warn'));
+  }
+  return plotToNo;
+}
+
+// Nuevo formato del archivo de cruzas (reemplaza al reporte de GIDs /
+// BulkScan): una sola hoja, una fila por planta/individuo, con:
+//   PLOT_CODE_FEM / PLOT_CODE_MALE   -> GID de hembra/macho de la cruza
+//   PLANT                            -> número de planta del individuo
+//   Type (MF / Normal)               -> MF = foliar, Normal = mazorca;
+//                                        reemplaza las hojas separadas de
+//                                        GID-MAZ / GID-FOLIAR
+//   Plot_in_trial (reff)             -> texto de la cruza, ej. (G1401/G1405)-2
+//   In study PLOT_FEM / PLOT_MALE    -> plot number que trae el archivo; se usa
+//                                        solo para VALIDAR contra el libro de
+//                                        campo, que sigue siendo la fuente
+//                                        real del plot number.
+// Cada fila del archivo YA ES una fila real del Crossing Template — no hay
+// que contar GIDs para saber si algo quedó bulk o individual, el archivo ya
+// trae exactamente las filas que hay.
+function loadCruzasNuevoFormato(wb) {
+  const ws = findSheet(wb, ['Hoja1', 'Cruzas', 'CRUZAS']) || wb.worksheets[0];
+  if (!ws) throw new Error('No encontré ninguna hoja en el archivo de cruzas.');
+
+  const required = ['PLOT_CODE_FEM', 'PLOT_CODE_MALE', 'PLANT', 'Type'];
+  const { headerRow, col } = findHeaderRow(ws, required);
+  if (!headerRow) throw new Error('No encontré las columnas PLOT_CODE_FEM / PLOT_CODE_MALE / PLANT / Type en el archivo de cruzas.');
+
+  const femCol = getCol(col, 'PLOT_CODE_FEM');
+  const maleCol = getCol(col, 'PLOT_CODE_MALE');
+  const plantCol = getCol(col, 'PLANT');
+  const typeCol = getCol(col, 'Type');
+  const reffCol = getCol(col, 'Plot_in_trial (reff)') || getCol(col, 'Plot_in_trial');
+  // Opcionales, solo para validar contra el libro de campo.
+  const femNoDeclCol = getCol(col, 'In study PLOT_FEM');
+  const maleNoDeclCol = getCol(col, 'In study PLOT_MALE');
+
+  const buckets = { mazorca: [], foliar: [] };
+  let skippedSelf = 0, skippedType = 0;
+  const unrecognizedTypes = new Set();
+
+  for (let r = headerRow + 1; r <= ws.rowCount; r++) {
+    const fem = cellVal(ws, r, femCol);
+    const macho = cellVal(ws, r, maleCol);
+    if (fem === null || macho === null) continue;
+    const femS = String(fem).trim().toUpperCase();
+    const machoS = String(macho).trim().toUpperCase();
+    if (femS === machoS) { skippedSelf++; continue; } // autofecundado, se omite siempre
+
+    const typeRaw = cellVal(ws, r, typeCol);
+    const typeNorm = normalize(typeRaw);
+    let bucket;
+    if (typeNorm === 'MF' || typeNorm === 'MUESTREOFOLIAR' || typeNorm === 'FOLIAR') bucket = 'foliar';
+    else if (typeNorm === 'NORMAL') bucket = 'mazorca';
+    else { skippedType++; if (typeRaw) unrecognizedTypes.add(String(typeRaw)); continue; }
+
+    buckets[bucket].push({
+      fem: femS,
+      macho: machoS,
+      plant: cellVal(ws, r, plantCol),
+      notes: reffCol ? cellVal(ws, r, reffCol) : `${femS}/${machoS}`,
+      femNoDeclared: femNoDeclCol ? cellVal(ws, r, femNoDeclCol) : null,
+      maleNoDeclared: maleNoDeclCol ? cellVal(ws, r, maleNoDeclCol) : null,
+      row: r,
+    });
+  }
+
+  log(`Archivo de cruzas ("${ws.name}"): ${buckets.mazorca.length} filas "Normal" (mazorca), ${buckets.foliar.length} filas "MF" (foliar).`);
+  if (skippedSelf) log(`Se omitieron ${skippedSelf} filas autofecundadas (sin cruza real).`, 'muted');
+  if (skippedType) {
+    log(`AVISO: ${skippedType} filas con Type no reconocido (ni MF ni Normal), se omitieron:`, 'warn');
+    [...unrecognizedTypes].slice(0, 10).forEach(v => log('   ' + v, 'warn'));
+  }
+
+  return buckets;
+}
+
+// Agrupa las filas individuales por par hembra/macho para la tabla de
+// revisión. "detected" = cuántas filas reales trae el archivo para ese par.
+// El plot number (femNo/maleNo) sale del libro de campo (plotToNo); si el
+// archivo de cruzas trae un plot declarado ("In study PLOT_*") y no coincide
+// con el del libro de campo, o si el GID no aparece en el libro de campo,
+// la cruza se marca como anomalía para que se revise antes de generar.
+function groupPairs(rows, plotToNo) {
+  const groups = {};
+  rows.forEach(r => {
+    const key = r.fem + '|' + r.macho;
+    (groups[key] = groups[key] || []).push(r);
+  });
+  return Object.keys(groups).sort().map(key => {
+    const [fem, macho] = key.split('|');
+    const items = groups[key].slice().sort((a, b) => (Number(a.plant) || 0) - (Number(b.plant) || 0));
+    const femNo = fem in plotToNo ? plotToNo[fem] : null;
+    const maleNo = macho in plotToNo ? plotToNo[macho] : null;
+    const missingPlot = femNo === null || maleNo === null;
+    const mismatch = items.some(it =>
+      (it.femNoDeclared !== null && it.femNoDeclared !== undefined && it.femNoDeclared !== '' && String(it.femNoDeclared) !== String(femNo)) ||
+      (it.maleNoDeclared !== null && it.maleNoDeclared !== undefined && it.maleNoDeclared !== '' && String(it.maleNoDeclared) !== String(maleNo))
+    );
+    return { fem, macho, femNo, maleNo, detected: items.length, items, anomaly: missingPlot || mismatch, missingPlot, mismatch };
+  });
+}
+
+// ---- estado global de la revisión ----
+let currentPairs = [];
+let currentFoliarPairs = [];
+const overrides = {}; // key -> filas a generar (por defecto = detected)
+const foliarOverrides = {};
+
+function pairKey(p) { return `${p.fem}|${p.macho}`; }
+
+function renderPairsTable(pairs) {
+  const tbody = document.getElementById('pairs-tbody');
+  tbody.innerHTML = '';
+  pairs.forEach(p => {
+    const key = pairKey(p);
+    overrides[key] = p.detected;
+
+    const tr = document.createElement('tr');
+    if (p.anomaly) tr.classList.add('anomaly');
+    tr.innerHTML = `
+      <td>${p.fem}</td>
+      <td>${p.macho}</td>
+      <td>${p.detected}</td>
+      <td><input type="number" min="0" data-key="${key}" value="${p.detected}"></td>`;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll('input[type=number]').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const v = parseInt(e.target.value, 10);
+      overrides[e.target.dataset.key] = Number.isFinite(v) && v >= 0 ? v : 0;
+      updateTotalRows();
+    });
+  });
+
+  document.getElementById('review-panel').classList.add('show');
+  updateTotalRows();
+}
+
+function applyToAllInputs() {
+  document.querySelectorAll('#pairs-tbody input[type=number]').forEach(inp => {
+    inp.value = overrides[inp.dataset.key];
+  });
+  updateTotalRows();
+}
+
+document.getElementById('mark-all-bulk').addEventListener('click', () => {
+  currentPairs.forEach(p => { overrides[pairKey(p)] = 1; });
+  applyToAllInputs();
+});
+document.getElementById('reset-overrides').addEventListener('click', () => {
+  currentPairs.forEach(p => { overrides[pairKey(p)] = p.detected; });
+  applyToAllInputs();
+});
+
+// El plot number (FEMALE PLOT / MALE PLOT) sale del libro de campo y es el
+// mismo para todas las filas de un mismo par hembra/macho; NOTES sí cambia
+// por fila (texto de Plot_in_trial de cada individuo). Si "Filas a generar"
+// pide menos que lo detectado, se toman las de menor número de planta
+// primero. Si pidiera más de lo detectado no hay de dónde sacar filas reales
+// adicionales, así que se limita a lo detectado y se avisa.
+function computeRowsFromPairs(pairsList, overridesObj) {
+  const rows = [];
+  const missing = new Set();
+  let capped = 0;
+  pairsList.forEach(p => {
+    const key = pairKey(p);
+    let n = overridesObj[key] ?? p.detected;
+    if (n > p.items.length) { n = p.items.length; capped++; }
+    if (n <= 0) return;
+    if (p.femNo === null) missing.add(p.fem);
+    if (p.maleNo === null) missing.add(p.macho);
+    for (let i = 0; i < n; i++) {
+      rows.push([p.femNo, p.maleNo, p.items[i].notes]);
+    }
+  });
+  return { rows, missing, capped };
+}
+
+function computeRows() {
+  return computeRowsFromPairs(currentPairs, overrides);
+}
+
+function updateTotalRows() {
+  const { rows } = computeRows();
+  document.getElementById('total-rows').textContent = rows.length;
+}
+
+// ---- misma mecanica, para la tabla de foliar (independiente) ----
+function renderFoliarTable(pairs) {
+  const panel = document.getElementById('review-panel-foliar');
+  if (!pairs.length) { panel.classList.remove('show'); return; }
+
+  const tbody = document.getElementById('pairs-tbody-foliar');
+  tbody.innerHTML = '';
+  pairs.forEach(p => {
+    const key = pairKey(p);
+    foliarOverrides[key] = p.detected;
+
+    const tr = document.createElement('tr');
+    if (p.anomaly) tr.classList.add('anomaly');
+    tr.innerHTML = `
+      <td>${p.fem}</td>
+      <td>${p.macho}</td>
+      <td>${p.detected}</td>
+      <td><input type="number" min="0" data-key="${key}" value="${p.detected}"></td>`;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll('input[type=number]').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const v = parseInt(e.target.value, 10);
+      foliarOverrides[e.target.dataset.key] = Number.isFinite(v) && v >= 0 ? v : 0;
+      updateTotalRowsFoliar();
+    });
+  });
+
+  panel.classList.add('show');
+  updateTotalRowsFoliar();
+}
+
+function applyToAllInputsFoliar() {
+  document.querySelectorAll('#pairs-tbody-foliar input[type=number]').forEach(inp => {
+    inp.value = foliarOverrides[inp.dataset.key];
+  });
+  updateTotalRowsFoliar();
+}
+
+document.getElementById('mark-all-bulk-foliar').addEventListener('click', () => {
+  currentFoliarPairs.forEach(p => { foliarOverrides[pairKey(p)] = 1; });
+  applyToAllInputsFoliar();
+});
+document.getElementById('reset-overrides-foliar').addEventListener('click', () => {
+  currentFoliarPairs.forEach(p => { foliarOverrides[pairKey(p)] = p.detected; });
+  applyToAllInputsFoliar();
+});
+
+function computeFoliarRows() {
+  return computeRowsFromPairs(currentFoliarPairs, foliarOverrides);
+}
+
+function updateTotalRowsFoliar() {
+  const { rows } = computeFoliarRows();
+  document.getElementById('total-rows-foliar').textContent = rows.length;
+}
+
+async function writeTemplate(wb, rows) {
+  const ws = findSheet(wb, ['Observation']);
+  if (!ws) throw new Error('No encontré una hoja "Observation" en el Crossing Template.');
+  const { headerRow, col } = findHeaderRow(ws, ['FEMALE PLOT', 'MALE PLOT']);
+  if (!headerRow) throw new Error('No encontré columnas FEMALE PLOT / MALE PLOT en el Crossing Template.');
+  const femCol = getCol(col, 'FEMALE PLOT'), maleCol = getCol(col, 'MALE PLOT'), notesCol = getCol(col, 'NOTES');
+
+  const startRow = headerRow + 1;
+  rows.forEach(([femNo, machoNo, notes], i) => {
+    const r = startRow + i;
+    ws.getRow(r).getCell(femCol).value = femNo;
+    ws.getRow(r).getCell(maleCol).value = machoNo;
+    if (notesCol) ws.getRow(r).getCell(notesCol).value = notes;
+  });
+  return await wb.xlsx.writeBuffer();
+}
+
+// Algunos exports de BMS no incluyen xl/theme/theme1.xml, pero ExcelJS igual
+// referencia esa parte al reescribir el archivo. Sin este parche, Excel muestra
+// "Encontramos un problema con parte del contenido" al abrir (no es perdida de
+// datos, es un archivo de tema faltante) y ofrece "reparar". Lo evitamos
+// agregando un theme1.xml estandar si hace falta, antes de descargar.
+const THEME_XML = `<?xml version="1.0"?>
+<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Office Theme">
+  <a:themeElements>
+    <a:clrScheme name="Office">
+      <a:dk1>
+        <a:sysClr val="windowText" lastClr="000000"/>
+      </a:dk1>
+      <a:lt1>
+        <a:sysClr val="window" lastClr="FFFFFF"/>
+      </a:lt1>
+      <a:dk2>
+        <a:srgbClr val="1F497D"/>
+      </a:dk2>
+      <a:lt2>
+        <a:srgbClr val="EEECE1"/>
+      </a:lt2>
+      <a:accent1>
+        <a:srgbClr val="4F81BD"/>
+      </a:accent1>
+      <a:accent2>
+        <a:srgbClr val="C0504D"/>
+      </a:accent2>
+      <a:accent3>
+        <a:srgbClr val="9BBB59"/>
+      </a:accent3>
+      <a:accent4>
+        <a:srgbClr val="8064A2"/>
+      </a:accent4>
+      <a:accent5>
+        <a:srgbClr val="4BACC6"/>
+      </a:accent5>
+      <a:accent6>
+        <a:srgbClr val="F79646"/>
+      </a:accent6>
+      <a:hlink>
+        <a:srgbClr val="0000FF"/>
+      </a:hlink>
+      <a:folHlink>
+        <a:srgbClr val="800080"/>
+      </a:folHlink>
+    </a:clrScheme>
+    <a:fontScheme name="Office">
+      <a:majorFont>
+        <a:latin typeface="Cambria"/>
+        <a:ea typeface=""/>
+        <a:cs typeface=""/>
+        <a:font script="Jpan" typeface="&#xFF2D;&#xFF33; &#xFF30;&#x30B4;&#x30B7;&#x30C3;&#x30AF;"/>
+        <a:font script="Hang" typeface="&#xB9D1;&#xC740; &#xACE0;&#xB515;"/>
+        <a:font script="Hans" typeface="&#x5B8B;&#x4F53;"/>
+        <a:font script="Hant" typeface="&#x65B0;&#x7D30;&#x660E;&#x9AD4;"/>
+        <a:font script="Arab" typeface="Times New Roman"/>
+        <a:font script="Hebr" typeface="Times New Roman"/>
+        <a:font script="Thai" typeface="Tahoma"/>
+        <a:font script="Ethi" typeface="Nyala"/>
+        <a:font script="Beng" typeface="Vrinda"/>
+        <a:font script="Gujr" typeface="Shruti"/>
+        <a:font script="Khmr" typeface="MoolBoran"/>
+        <a:font script="Knda" typeface="Tunga"/>
+        <a:font script="Guru" typeface="Raavi"/>
+        <a:font script="Cans" typeface="Euphemia"/>
+        <a:font script="Cher" typeface="Plantagenet Cherokee"/>
+        <a:font script="Yiii" typeface="Microsoft Yi Baiti"/>
+        <a:font script="Tibt" typeface="Microsoft Himalaya"/>
+        <a:font script="Thaa" typeface="MV Boli"/>
+        <a:font script="Deva" typeface="Mangal"/>
+        <a:font script="Telu" typeface="Gautami"/>
+        <a:font script="Taml" typeface="Latha"/>
+        <a:font script="Syrc" typeface="Estrangelo Edessa"/>
+        <a:font script="Orya" typeface="Kalinga"/>
+        <a:font script="Mlym" typeface="Kartika"/>
+        <a:font script="Laoo" typeface="DokChampa"/>
+        <a:font script="Sinh" typeface="Iskoola Pota"/>
+        <a:font script="Mong" typeface="Mongolian Baiti"/>
+        <a:font script="Viet" typeface="Times New Roman"/>
+        <a:font script="Uigh" typeface="Microsoft Uighur"/>
+      </a:majorFont>
+      <a:minorFont>
+        <a:latin typeface="Calibri"/>
+        <a:ea typeface=""/>
+        <a:cs typeface=""/>
+        <a:font script="Jpan" typeface="&#xFF2D;&#xFF33; &#xFF30;&#x30B4;&#x30B7;&#x30C3;&#x30AF;"/>
+        <a:font script="Hang" typeface="&#xB9D1;&#xC740; &#xACE0;&#xB515;"/>
+        <a:font script="Hans" typeface="&#x5B8B;&#x4F53;"/>
+        <a:font script="Hant" typeface="&#x65B0;&#x7D30;&#x660E;&#x9AD4;"/>
+        <a:font script="Arab" typeface="Arial"/>
+        <a:font script="Hebr" typeface="Arial"/>
+        <a:font script="Thai" typeface="Tahoma"/>
+        <a:font script="Ethi" typeface="Nyala"/>
+        <a:font script="Beng" typeface="Vrinda"/>
+        <a:font script="Gujr" typeface="Shruti"/>
+        <a:font script="Khmr" typeface="DaunPenh"/>
+        <a:font script="Knda" typeface="Tunga"/>
+        <a:font script="Guru" typeface="Raavi"/>
+        <a:font script="Cans" typeface="Euphemia"/>
+        <a:font script="Cher" typeface="Plantagenet Cherokee"/>
+        <a:font script="Yiii" typeface="Microsoft Yi Baiti"/>
+        <a:font script="Tibt" typeface="Microsoft Himalaya"/>
+        <a:font script="Thaa" typeface="MV Boli"/>
+        <a:font script="Deva" typeface="Mangal"/>
+        <a:font script="Telu" typeface="Gautami"/>
+        <a:font script="Taml" typeface="Latha"/>
+        <a:font script="Syrc" typeface="Estrangelo Edessa"/>
+        <a:font script="Orya" typeface="Kalinga"/>
+        <a:font script="Mlym" typeface="Kartika"/>
+        <a:font script="Laoo" typeface="DokChampa"/>
+        <a:font script="Sinh" typeface="Iskoola Pota"/>
+        <a:font script="Mong" typeface="Mongolian Baiti"/>
+        <a:font script="Viet" typeface="Arial"/>
+        <a:font script="Uigh" typeface="Microsoft Uighur"/>
+      </a:minorFont>
+    </a:fontScheme>
+    <a:fmtScheme name="Office">
+      <a:fillStyleLst>
+        <a:solidFill>
+          <a:schemeClr val="phClr"/>
+        </a:solidFill>
+        <a:gradFill rotWithShape="1">
+          <a:gsLst>
+            <a:gs pos="0">
+              <a:schemeClr val="phClr">
+                <a:tint val="50000"/>
+                <a:satMod val="300000"/>
+              </a:schemeClr>
+            </a:gs>
+            <a:gs pos="35000">
+              <a:schemeClr val="phClr">
+                <a:tint val="37000"/>
+                <a:satMod val="300000"/>
+              </a:schemeClr>
+            </a:gs>
+            <a:gs pos="100000">
+              <a:schemeClr val="phClr">
+                <a:tint val="15000"/>
+                <a:satMod val="350000"/>
+              </a:schemeClr>
+            </a:gs>
+          </a:gsLst>
+          <a:lin ang="16200000" scaled="1"/>
+        </a:gradFill>
+        <a:gradFill rotWithShape="1">
+          <a:gsLst>
+            <a:gs pos="0">
+              <a:schemeClr val="phClr">
+                <a:shade val="51000"/>
+                <a:satMod val="130000"/>
+              </a:schemeClr>
+            </a:gs>
+            <a:gs pos="80000">
+              <a:schemeClr val="phClr">
+                <a:shade val="93000"/>
+                <a:satMod val="130000"/>
+              </a:schemeClr>
+            </a:gs>
+            <a:gs pos="100000">
+              <a:schemeClr val="phClr">
+                <a:shade val="94000"/>
+                <a:satMod val="135000"/>
+              </a:schemeClr>
+            </a:gs>
+          </a:gsLst>
+          <a:lin ang="16200000" scaled="0"/>
+        </a:gradFill>
+      </a:fillStyleLst>
+      <a:lnStyleLst>
+        <a:ln w="9525" cap="flat" cmpd="sng" algn="ctr">
+          <a:solidFill>
+            <a:schemeClr val="phClr">
+              <a:shade val="95000"/>
+              <a:satMod val="105000"/>
+            </a:schemeClr>
+          </a:solidFill>
+          <a:prstDash val="solid"/>
+        </a:ln>
+        <a:ln w="25400" cap="flat" cmpd="sng" algn="ctr">
+          <a:solidFill>
+            <a:schemeClr val="phClr"/>
+          </a:solidFill>
+          <a:prstDash val="solid"/>
+        </a:ln>
+        <a:ln w="38100" cap="flat" cmpd="sng" algn="ctr">
+          <a:solidFill>
+            <a:schemeClr val="phClr"/>
+          </a:solidFill>
+          <a:prstDash val="solid"/>
+        </a:ln>
+      </a:lnStyleLst>
+      <a:effectStyleLst>
+        <a:effectStyle>
+          <a:effectLst>
+            <a:outerShdw blurRad="40000" dist="20000" dir="5400000" rotWithShape="0">
+              <a:srgbClr val="000000">
+                <a:alpha val="38000"/>
+              </a:srgbClr>
+            </a:outerShdw>
+          </a:effectLst>
+        </a:effectStyle>
+        <a:effectStyle>
+          <a:effectLst>
+            <a:outerShdw blurRad="40000" dist="23000" dir="5400000" rotWithShape="0">
+              <a:srgbClr val="000000">
+                <a:alpha val="35000"/>
+              </a:srgbClr>
+            </a:outerShdw>
+          </a:effectLst>
+        </a:effectStyle>
+        <a:effectStyle>
+          <a:effectLst>
+            <a:outerShdw blurRad="40000" dist="23000" dir="5400000" rotWithShape="0">
+              <a:srgbClr val="000000">
+                <a:alpha val="35000"/>
+              </a:srgbClr>
+            </a:outerShdw>
+          </a:effectLst>
+          <a:scene3d>
+            <a:camera prst="orthographicFront">
+              <a:rot lat="0" lon="0" rev="0"/>
+            </a:camera>
+            <a:lightRig rig="threePt" dir="t">
+              <a:rot lat="0" lon="0" rev="1200000"/>
+            </a:lightRig>
+          </a:scene3d>
+          <a:sp3d>
+            <a:bevelT w="63500" h="25400"/>
+          </a:sp3d>
+        </a:effectStyle>
+      </a:effectStyleLst>
+      <a:bgFillStyleLst>
+        <a:solidFill>
+          <a:schemeClr val="phClr"/>
+        </a:solidFill>
+        <a:gradFill rotWithShape="1">
+          <a:gsLst>
+            <a:gs pos="0">
+              <a:schemeClr val="phClr">
+                <a:tint val="40000"/>
+                <a:satMod val="350000"/>
+              </a:schemeClr>
+            </a:gs>
+            <a:gs pos="40000">
+              <a:schemeClr val="phClr">
+                <a:tint val="45000"/>
+                <a:shade val="99000"/>
+                <a:satMod val="350000"/>
+              </a:schemeClr>
+            </a:gs>
+            <a:gs pos="100000">
+              <a:schemeClr val="phClr">
+                <a:shade val="20000"/>
+                <a:satMod val="255000"/>
+              </a:schemeClr>
+            </a:gs>
+          </a:gsLst>
+          <a:path path="circle">
+            <a:fillToRect l="50000" t="-80000" r="50000" b="180000"/>
+          </a:path>
+        </a:gradFill>
+        <a:gradFill rotWithShape="1">
+          <a:gsLst>
+            <a:gs pos="0">
+              <a:schemeClr val="phClr">
+                <a:tint val="80000"/>
+                <a:satMod val="300000"/>
+              </a:schemeClr>
+            </a:gs>
+            <a:gs pos="100000">
+              <a:schemeClr val="phClr">
+                <a:shade val="30000"/>
+                <a:satMod val="200000"/>
+              </a:schemeClr>
+            </a:gs>
+          </a:gsLst>
+          <a:path path="circle">
+            <a:fillToRect l="50000" t="50000" r="50000" b="50000"/>
+          </a:path>
+        </a:gradFill>
+      </a:bgFillStyleLst>
+    </a:fmtScheme>
+  </a:themeElements>
+  <a:objectDefaults/>
+  <a:extraClrSchemeLst/>
+</a:theme>
+`;
+
+async function patchMissingTheme(buffer) {
+  try {
+    const zip = await JSZip.loadAsync(buffer);
+    const ctFile = zip.file('[Content_Types].xml');
+    if (!ctFile) return buffer;
+    const contentTypes = await ctFile.async('string');
+    const needsTheme = /PartName="\/xl\/theme\/theme1\.xml"/.test(contentTypes)
+      && !zip.file('xl/theme/theme1.xml');
+    if (needsTheme) {
+      zip.file('xl/theme/theme1.xml', THEME_XML);
+      return await zip.generateAsync({ type: 'arraybuffer' });
+    }
+    return buffer;
+  } catch (e) {
+    console.error('No se pudo verificar/parchar el tema del archivo:', e);
+    return buffer;
+  }
+}
+
+
+analyzeBtn.addEventListener('click', async () => {
+  resetLog();
+  analyzeBtn.disabled = true;
+  statusEl.textContent = 'Analizando…';
+  try {
+    const wbObs = await loadWorkbookFromFile(files.obs);
+    const plotToNo = loadPlotLookup(wbObs);
+
+    const wbCruzas = await loadWorkbookFromFile(files.cruzas);
+    const buckets = loadCruzasNuevoFormato(wbCruzas);
+    currentPairs = groupPairs(buckets.mazorca, plotToNo);
+    currentFoliarPairs = groupPairs(buckets.foliar, plotToNo);
+    log('Mazorca y foliar se procesan y se descargan por separado a propósito (son dos procesos distintos).', 'muted');
+
+    const badPairs = [...currentPairs, ...currentFoliarPairs].filter(p => p.anomaly);
+    if (badPairs.length) {
+      log(`AVISO: ${badPairs.length} cruzas con anomalía (GID sin plot en el libro de campo, o plot declarado en el archivo de cruzas que no coincide):`, 'warn');
+      badPairs.forEach(p => {
+        const reason = p.missingPlot ? 'GID sin plot en libro de campo' : 'plot declarado no coincide con libro de campo';
+        log(`   ${p.fem}/${p.macho} — ${reason}`, 'warn');
+      });
+    }
+
+    renderPairsTable(currentPairs);
+    renderFoliarTable(currentFoliarPairs);
+    statusEl.textContent = 'Revisa las cruzas abajo y genera el archivo';
+  } catch (err) {
+    log('ERROR: ' + err.message, 'err');
+    statusEl.textContent = 'Hubo un error — revisa el registro';
+    console.error(err);
+  } finally {
+    analyzeBtn.disabled = false;
+  }
+});
+
+generateBtn.addEventListener('click', async () => {
+  generateBtn.disabled = true;
+  try {
+    const { rows, missing, capped } = computeRows();
+    if (missing.size) {
+      log(`AVISO: ${missing.size} GID NO se encontraron en el libro de campo (quedaron en blanco, revisar):`, 'warn');
+      log('   ' + [...missing].sort().join(', '), 'warn');
+    }
+    if (capped) {
+      log(`AVISO: ${capped} cruzas pedían más "filas a generar" de las que trae el archivo; se usaron todas las filas disponibles.`, 'warn');
+    }
+    log(`Total filas generadas para el Crossing Template: ${rows.length}`, 'ok');
+
+    const wbTpl = await loadWorkbookFromFile(files.tpl);
+    let buffer = await writeTemplate(wbTpl, rows);
+    buffer = await patchMissingTheme(buffer);
+
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const outName = files.tpl.name.replace(/\.xlsx$/i, '') + '_LLENO.xlsx';
+    const dl = document.getElementById('download-link');
+    dl.href = url;
+    dl.download = outName;
+    document.getElementById('dl-title').textContent = outName;
+    document.getElementById('dl-sub').textContent = `${rows.length} filas listas para importar en BMS`;
+    document.getElementById('download-box').classList.add('show');
+  } catch (err) {
+    log('ERROR: ' + err.message, 'err');
+    console.error(err);
+  } finally {
+    generateBtn.disabled = false;
+  }
+});
+
+document.getElementById('generate-foliar').addEventListener('click', async () => {
+  const btn = document.getElementById('generate-foliar');
+  btn.disabled = true;
+  try {
+    const { rows, missing, capped } = computeFoliarRows();
+    if (missing.size) {
+      log(`AVISO (foliar): ${missing.size} GID NO se encontraron en el libro de campo (quedaron en blanco, revisar):`, 'warn');
+      log('   ' + [...missing].sort().join(', '), 'warn');
+    }
+    if (capped) {
+      log(`AVISO (foliar): ${capped} cruzas pedían más "filas a generar" de las que trae el archivo; se usaron todas las filas disponibles.`, 'warn');
+    }
+    log(`Total filas generadas para el Crossing Template de FOLIAR: ${rows.length}`, 'ok');
+
+    // Se carga una copia nueva e independiente del mismo template en blanco,
+    // para que el archivo de foliar quede totalmente separado del de mazorca.
+    const wbTpl = await loadWorkbookFromFile(files.tpl);
+    let buffer = await writeTemplate(wbTpl, rows);
+    buffer = await patchMissingTheme(buffer);
+
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const outName = files.tpl.name.replace(/\.xlsx$/i, '') + '_FOLIAR_LLENO.xlsx';
+    const dl = document.getElementById('download-link-foliar');
+    dl.href = url;
+    dl.download = outName;
+    document.getElementById('dl-title-foliar').textContent = outName;
+    document.getElementById('dl-sub-foliar').textContent = `${rows.length} filas listas para importar en BMS`;
+    document.getElementById('download-box-foliar').classList.add('show');
+  } catch (err) {
+    log('ERROR (foliar): ' + err.message, 'err');
+    console.error(err);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+})();
+</script>
+
+<script>
+(function(){
+
+const files = { inv: null, obs: null };
+
+function wireDrop(key, inputId, dropId, labelId) {
+  const drop = document.getElementById(dropId);
+  const input = document.getElementById(inputId);
+  const label = document.getElementById(labelId);
+  const setFile = (f) => {
+    if (!f) return;
+    files[key] = f;
+    label.innerHTML = '<b>' + f.name + '</b>';
+    drop.classList.add('filled');
+    updateRunState();
+  };
+  input.addEventListener('change', e => setFile(e.target.files[0]));
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault(); drop.classList.remove('drag');
+    if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+  });
+}
+wireDrop('inv', 'file-inv', 'drop-inv', 'label-inv');
+wireDrop('obs', 'file-obs2', 'drop-obs2', 'label-obs2');
+
+const runBtn = document.getElementById('run');
+const statusEl = document.getElementById('status2');
+function updateRunState() {
+  const ready = files.inv && files.obs;
+  runBtn.disabled = !ready;
+  statusEl.textContent = ready ? 'Listo para procesar' : 'Sube los 2 archivos para continuar';
+}
+
+const logPanel = document.getElementById('log-panel2');
+const logEl = document.getElementById('log2');
+function log(msg, cls) {
+  const line = document.createElement('div');
+  line.className = 'log-line' + (cls ? ' ' + cls : '');
+  line.textContent = msg;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+function resetLog() {
+  logEl.innerHTML = '';
+  logPanel.classList.add('show');
+  document.getElementById('download-box2').classList.remove('show');
+}
+
+// ---- logica (misma familia que el resto de la suite) ----
+function normalize(name) { return String(name).replace(/[\s\-_().]+/g, '').toUpperCase(); }
+
+function findSheet(workbook, candidates) {
+  const map = {};
+  workbook.worksheets.forEach(ws => { map[normalize(ws.name)] = ws; });
+  for (const cand of candidates) {
+    const key = normalize(cand);
+    if (map[key]) return map[key];
+  }
+  return null;
+}
+
+function findHeaderRow(ws, requiredCols, maxScan = 20) {
+  const limit = Math.min(maxScan, ws.rowCount || maxScan);
+  const normReq = requiredCols.map(normalize);
+  for (let r = 1; r <= limit; r++) {
+    const row = ws.getRow(r);
+    const colMap = {};
+    row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+      if (cell.value !== null && cell.value !== undefined && cell.value !== '') {
+        colMap[normalize(cell.value)] = colNumber;
+      }
+    });
+    if (normReq.every(rc => rc in colMap)) return { headerRow: r, col: colMap };
+  }
+  return { headerRow: null, col: null };
+}
+function getCol(col, name) { return col[normalize(name)]; }
+
+function cellVal(ws, r, c) {
+  const v = ws.getRow(r).getCell(c).value;
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'object' && v.result !== undefined) return v.result;
+  return v;
+}
+
+async function loadWorkbookFromFile(file) {
+  const buf = await file.arrayBuffer();
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buf);
+  return wb;
+}
+
+function normType(t) {
+  const s = normalize(t);
+  if (s === 'MUESTREOFOLIAR' || s === 'FOLIAR') return 'foliar';
+  if (s === 'NORMAL') return 'normal';
+  return null;
+}
+
+function loadInventario(wb) {
+  const ws = findSheet(wb, ['Hoja1', 'Inventario', 'Inventario inicial']) || wb.worksheets[0];
+  const { headerRow, col } = findHeaderRow(ws, ['OBS_UNIT_ID', 'Type', 'PLOT_CODE']);
+  if (!headerRow) throw new Error(`No encontré columnas OBS_UNIT_ID / Type / PLOT_CODE en la hoja "${ws.name}" del inventario.`);
+  const idCol = getCol(col, 'OBS_UNIT_ID'), typeCol = getCol(col, 'Type'), plotCol = getCol(col, 'PLOT_CODE');
+
+  const inv = {};
+  let unparsedType = 0;
+  const unparsedSamples = [];
+  for (let r = headerRow + 1; r <= ws.rowCount; r++) {
+    const id = cellVal(ws, r, idCol);
+    if (!id) continue;
+    const rawType = cellVal(ws, r, typeCol);
+    const t = normType(rawType);
+    if (!t) {
+      unparsedType++;
+      if (unparsedSamples.length < 10) unparsedSamples.push(`${id} → "${rawType}"`);
+      continue;
+    }
+    inv[id] = { type: t, plotCode: cellVal(ws, r, plotCol) };
+  }
+  log(`Inventario ("${ws.name}"): ${Object.keys(inv).length} filas con Type reconocido (Muestreo foliar / Normal).`);
+  if (unparsedType) {
+    log(`AVISO: ${unparsedType} filas con un valor de Type no reconocido, se omitieron:`, 'warn');
+    unparsedSamples.forEach(s => log('   ' + s, 'warn'));
+  }
+  return inv;
+}
+
+function fillObservation(wb, inv) {
+  const ws = findSheet(wb, ['Observation']);
+  if (!ws) throw new Error('No encontré una hoja "Observation" en el libro de campo.');
+  const { headerRow, col } = findHeaderRow(ws, ['OBS_UNIT_ID', 'PLOT_CODE', 'Total_Psample', 'NPSEL']);
+  if (!headerRow) throw new Error('No encontré columnas OBS_UNIT_ID / PLOT_CODE / Total_Psample / NPSEL en la hoja Observation.');
+  const idCol = getCol(col, 'OBS_UNIT_ID'), plotCol = getCol(col, 'PLOT_CODE');
+  const tpCol = getCol(col, 'Total_Psample'), npCol = getCol(col, 'NPSEL');
+
+  const rowByObsId = {};
+  let alreadyFilled = 0;
+  for (let r = headerRow + 1; r <= ws.rowCount; r++) {
+    const id = cellVal(ws, r, idCol);
+    if (id === null) continue;
+    rowByObsId[id] = r;
+    if (cellVal(ws, r, tpCol) !== null || cellVal(ws, r, npCol) !== null) alreadyFilled++;
+  }
+  log(`Libro de campo: ${Object.keys(rowByObsId).length} OBS_UNIT_ID únicos.` + (alreadyFilled ? ` (${alreadyFilled} ya tenían algo en Total_Psample/NPSEL antes de este llenado — se sobrescriben con lo que diga el inventario.)` : ''), alreadyFilled ? 'muted' : undefined);
+
+  let filledFoliar = 0, filledNormal = 0;
+  const notFound = [];
+  const plotMismatch = [];
+  for (const [id, info] of Object.entries(inv)) {
+    const r = rowByObsId[id];
+    if (!r) { notFound.push(id); continue; }
+    const plotObs = cellVal(ws, r, plotCol);
+    if (info.plotCode && info.plotCode !== 'N/A' && plotObs !== info.plotCode) {
+      plotMismatch.push(`${id}: inventario dice ${info.plotCode}, libro de campo dice ${plotObs}`);
+    }
+    if (info.type === 'foliar') { ws.getRow(r).getCell(tpCol).value = 1; filledFoliar++; }
+    else { ws.getRow(r).getCell(npCol).value = 1; filledNormal++; }
+  }
+
+  log(`Llenados como foliar (Total_Psample = 1): ${filledFoliar}`, 'ok');
+  log(`Llenados como normal (NPSEL = 1): ${filledNormal}`, 'ok');
+  if (notFound.length) {
+    log(`AVISO: ${notFound.length} OBS_UNIT_ID del inventario NO se encontraron en el libro de campo (revisar, puede ser el archivo equivocado o un typo):`, 'warn');
+    notFound.slice(0, 15).forEach(id => log('   ' + id, 'warn'));
+  } else {
+    log('Todos los OBS_UNIT_ID del inventario se encontraron en el libro de campo.', 'ok');
+  }
+  if (plotMismatch.length) {
+    log(`AVISO: ${plotMismatch.length} filas con PLOT_CODE distinto entre inventario y libro de campo (mismo OBS_UNIT_ID):`, 'warn');
+    plotMismatch.slice(0, 15).forEach(m => log('   ' + m, 'warn'));
+  }
+
+  return { filledFoliar, filledNormal, notFound, plotMismatch };
+}
+
+// Igual que en el resto de la suite: algunos exports de BMS no incluyen
+// xl/theme/theme1.xml; sin este parche Excel muestra un aviso de reparacion
+// al abrir (no hay perdida de datos, solo falta esa pieza).
+const THEME_XML = `<?xml version="1.0"?>
+<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Office Theme">
+  <a:themeElements>
+    <a:clrScheme name="Office">
+      <a:dk1>
+        <a:sysClr val="windowText" lastClr="000000"/>
+      </a:dk1>
+      <a:lt1>
+        <a:sysClr val="window" lastClr="FFFFFF"/>
+      </a:lt1>
+      <a:dk2>
+        <a:srgbClr val="1F497D"/>
+      </a:dk2>
+      <a:lt2>
+        <a:srgbClr val="EEECE1"/>
+      </a:lt2>
+      <a:accent1>
+        <a:srgbClr val="4F81BD"/>
+      </a:accent1>
+      <a:accent2>
+        <a:srgbClr val="C0504D"/>
+      </a:accent2>
+      <a:accent3>
+        <a:srgbClr val="9BBB59"/>
+      </a:accent3>
+      <a:accent4>
+        <a:srgbClr val="8064A2"/>
+      </a:accent4>
+      <a:accent5>
+        <a:srgbClr val="4BACC6"/>
+      </a:accent5>
+      <a:accent6>
+        <a:srgbClr val="F79646"/>
+      </a:accent6>
+      <a:hlink>
+        <a:srgbClr val="0000FF"/>
+      </a:hlink>
+      <a:folHlink>
+        <a:srgbClr val="800080"/>
+      </a:folHlink>
+    </a:clrScheme>
+    <a:fontScheme name="Office">
+      <a:majorFont>
+        <a:latin typeface="Cambria"/>
+        <a:ea typeface=""/>
+        <a:cs typeface=""/>
+        <a:font script="Jpan" typeface="&#xFF2D;&#xFF33; &#xFF30;&#x30B4;&#x30B7;&#x30C3;&#x30AF;"/>
+        <a:font script="Hang" typeface="&#xB9D1;&#xC740; &#xACE0;&#xB515;"/>
+        <a:font script="Hans" typeface="&#x5B8B;&#x4F53;"/>
+        <a:font script="Hant" typeface="&#x65B0;&#x7D30;&#x660E;&#x9AD4;"/>
+        <a:font script="Arab" typeface="Times New Roman"/>
+        <a:font script="Hebr" typeface="Times New Roman"/>
+        <a:font script="Thai" typeface="Tahoma"/>
+        <a:font script="Ethi" typeface="Nyala"/>
+        <a:font script="Beng" typeface="Vrinda"/>
+        <a:font script="Gujr" typeface="Shruti"/>
+        <a:font script="Khmr" typeface="MoolBoran"/>
+        <a:font script="Knda" typeface="Tunga"/>
+        <a:font script="Guru" typeface="Raavi"/>
+        <a:font script="Cans" typeface="Euphemia"/>
+        <a:font script="Cher" typeface="Plantagenet Cherokee"/>
+        <a:font script="Yiii" typeface="Microsoft Yi Baiti"/>
+        <a:font script="Tibt" typeface="Microsoft Himalaya"/>
+        <a:font script="Thaa" typeface="MV Boli"/>
+        <a:font script="Deva" typeface="Mangal"/>
+        <a:font script="Telu" typeface="Gautami"/>
+        <a:font script="Taml" typeface="Latha"/>
+        <a:font script="Syrc" typeface="Estrangelo Edessa"/>
+        <a:font script="Orya" typeface="Kalinga"/>
+        <a:font script="Mlym" typeface="Kartika"/>
+        <a:font script="Laoo" typeface="DokChampa"/>
+        <a:font script="Sinh" typeface="Iskoola Pota"/>
+        <a:font script="Mong" typeface="Mongolian Baiti"/>
+        <a:font script="Viet" typeface="Times New Roman"/>
+        <a:font script="Uigh" typeface="Microsoft Uighur"/>
+      </a:majorFont>
+      <a:minorFont>
+        <a:latin typeface="Calibri"/>
+        <a:ea typeface=""/>
+        <a:cs typeface=""/>
+        <a:font script="Jpan" typeface="&#xFF2D;&#xFF33; &#xFF30;&#x30B4;&#x30B7;&#x30C3;&#x30AF;"/>
+        <a:font script="Hang" typeface="&#xB9D1;&#xC740; &#xACE0;&#xB515;"/>
+        <a:font script="Hans" typeface="&#x5B8B;&#x4F53;"/>
+        <a:font script="Hant" typeface="&#x65B0;&#x7D30;&#x660E;&#x9AD4;"/>
+        <a:font script="Arab" typeface="Arial"/>
+        <a:font script="Hebr" typeface="Arial"/>
+        <a:font script="Thai" typeface="Tahoma"/>
+        <a:font script="Ethi" typeface="Nyala"/>
+        <a:font script="Beng" typeface="Vrinda"/>
+        <a:font script="Gujr" typeface="Shruti"/>
+        <a:font script="Khmr" typeface="DaunPenh"/>
+        <a:font script="Knda" typeface="Tunga"/>
+        <a:font script="Guru" typeface="Raavi"/>
+        <a:font script="Cans" typeface="Euphemia"/>
+        <a:font script="Cher" typeface="Plantagenet Cherokee"/>
+        <a:font script="Yiii" typeface="Microsoft Yi Baiti"/>
+        <a:font script="Tibt" typeface="Microsoft Himalaya"/>
+        <a:font script="Thaa" typeface="MV Boli"/>
+        <a:font script="Deva" typeface="Mangal"/>
+        <a:font script="Telu" typeface="Gautami"/>
+        <a:font script="Taml" typeface="Latha"/>
+        <a:font script="Syrc" typeface="Estrangelo Edessa"/>
+        <a:font script="Orya" typeface="Kalinga"/>
+        <a:font script="Mlym" typeface="Kartika"/>
+        <a:font script="Laoo" typeface="DokChampa"/>
+        <a:font script="Sinh" typeface="Iskoola Pota"/>
+        <a:font script="Mong" typeface="Mongolian Baiti"/>
+        <a:font script="Viet" typeface="Arial"/>
+        <a:font script="Uigh" typeface="Microsoft Uighur"/>
+      </a:minorFont>
+    </a:fontScheme>
+    <a:fmtScheme name="Office">
+      <a:fillStyleLst>
+        <a:solidFill>
+          <a:schemeClr val="phClr"/>
+        </a:solidFill>
+        <a:gradFill rotWithShape="1">
+          <a:gsLst>
+            <a:gs pos="0">
+              <a:schemeClr val="phClr">
+                <a:tint val="50000"/>
+                <a:satMod val="300000"/>
+              </a:schemeClr>
+            </a:gs>
+            <a:gs pos="35000">
+              <a:schemeClr val="phClr">
+                <a:tint val="37000"/>
+                <a:satMod val="300000"/>
+              </a:schemeClr>
+            </a:gs>
+            <a:gs pos="100000">
+              <a:schemeClr val="phClr">
+                <a:tint val="15000"/>
+                <a:satMod val="350000"/>
+              </a:schemeClr>
+            </a:gs>
+          </a:gsLst>
+          <a:lin ang="16200000" scaled="1"/>
+        </a:gradFill>
+        <a:gradFill rotWithShape="1">
+          <a:gsLst>
+            <a:gs pos="0">
+              <a:schemeClr val="phClr">
+                <a:shade val="51000"/>
+                <a:satMod val="130000"/>
+              </a:schemeClr>
+            </a:gs>
+            <a:gs pos="80000">
+              <a:schemeClr val="phClr">
+                <a:shade val="93000"/>
+                <a:satMod val="130000"/>
+              </a:schemeClr>
+            </a:gs>
+            <a:gs pos="100000">
+              <a:schemeClr val="phClr">
+                <a:shade val="94000"/>
+                <a:satMod val="135000"/>
+              </a:schemeClr>
+            </a:gs>
+          </a:gsLst>
+          <a:lin ang="16200000" scaled="0"/>
+        </a:gradFill>
+      </a:fillStyleLst>
+      <a:lnStyleLst>
+        <a:ln w="9525" cap="flat" cmpd="sng" algn="ctr">
+          <a:solidFill>
+            <a:schemeClr val="phClr">
+              <a:shade val="95000"/>
+              <a:satMod val="105000"/>
+            </a:schemeClr>
+          </a:solidFill>
+          <a:prstDash val="solid"/>
+        </a:ln>
+        <a:ln w="25400" cap="flat" cmpd="sng" algn="ctr">
+          <a:solidFill>
+            <a:schemeClr val="phClr"/>
+          </a:solidFill>
+          <a:prstDash val="solid"/>
+        </a:ln>
+        <a:ln w="38100" cap="flat" cmpd="sng" algn="ctr">
+          <a:solidFill>
+            <a:schemeClr val="phClr"/>
+          </a:solidFill>
+          <a:prstDash val="solid"/>
+        </a:ln>
+      </a:lnStyleLst>
+      <a:effectStyleLst>
+        <a:effectStyle>
+          <a:effectLst>
+            <a:outerShdw blurRad="40000" dist="20000" dir="5400000" rotWithShape="0">
+              <a:srgbClr val="000000">
+                <a:alpha val="38000"/>
+              </a:srgbClr>
+            </a:outerShdw>
+          </a:effectLst>
+        </a:effectStyle>
+        <a:effectStyle>
+          <a:effectLst>
+            <a:outerShdw blurRad="40000" dist="23000" dir="5400000" rotWithShape="0">
+              <a:srgbClr val="000000">
+                <a:alpha val="35000"/>
+              </a:srgbClr>
+            </a:outerShdw>
+          </a:effectLst>
+        </a:effectStyle>
+        <a:effectStyle>
+          <a:effectLst>
+            <a:outerShdw blurRad="40000" dist="23000" dir="5400000" rotWithShape="0">
+              <a:srgbClr val="000000">
+                <a:alpha val="35000"/>
+              </a:srgbClr>
+            </a:outerShdw>
+          </a:effectLst>
+          <a:scene3d>
+            <a:camera prst="orthographicFront">
+              <a:rot lat="0" lon="0" rev="0"/>
+            </a:camera>
+            <a:lightRig rig="threePt" dir="t">
+              <a:rot lat="0" lon="0" rev="1200000"/>
+            </a:lightRig>
+          </a:scene3d>
+          <a:sp3d>
+            <a:bevelT w="63500" h="25400"/>
+          </a:sp3d>
+        </a:effectStyle>
+      </a:effectStyleLst>
+      <a:bgFillStyleLst>
+        <a:solidFill>
+          <a:schemeClr val="phClr"/>
+        </a:solidFill>
+        <a:gradFill rotWithShape="1">
+          <a:gsLst>
+            <a:gs pos="0">
+              <a:schemeClr val="phClr">
+                <a:tint val="40000"/>
+                <a:satMod val="350000"/>
+              </a:schemeClr>
+            </a:gs>
+            <a:gs pos="40000">
+              <a:schemeClr val="phClr">
+                <a:tint val="45000"/>
+                <a:shade val="99000"/>
+                <a:satMod val="350000"/>
+              </a:schemeClr>
+            </a:gs>
+            <a:gs pos="100000">
+              <a:schemeClr val="phClr">
+                <a:shade val="20000"/>
+                <a:satMod val="255000"/>
+              </a:schemeClr>
+            </a:gs>
+          </a:gsLst>
+          <a:path path="circle">
+            <a:fillToRect l="50000" t="-80000" r="50000" b="180000"/>
+          </a:path>
+        </a:gradFill>
+        <a:gradFill rotWithShape="1">
+          <a:gsLst>
+            <a:gs pos="0">
+              <a:schemeClr val="phClr">
+                <a:tint val="80000"/>
+                <a:satMod val="300000"/>
+              </a:schemeClr>
+            </a:gs>
+            <a:gs pos="100000">
+              <a:schemeClr val="phClr">
+                <a:shade val="30000"/>
+                <a:satMod val="200000"/>
+              </a:schemeClr>
+            </a:gs>
+          </a:gsLst>
+          <a:path path="circle">
+            <a:fillToRect l="50000" t="50000" r="50000" b="50000"/>
+          </a:path>
+        </a:gradFill>
+      </a:bgFillStyleLst>
+    </a:fmtScheme>
+  </a:themeElements>
+  <a:objectDefaults/>
+  <a:extraClrSchemeLst/>
+</a:theme>
+`;
+
+async function patchMissingTheme(buffer) {
+  try {
+    const zip = await JSZip.loadAsync(buffer);
+    const ctFile = zip.file('[Content_Types].xml');
+    if (!ctFile) return buffer;
+    const contentTypes = await ctFile.async('string');
+    const needsTheme = /PartName="\/xl\/theme\/theme1\.xml"/.test(contentTypes)
+      && !zip.file('xl/theme/theme1.xml');
+    if (needsTheme) {
+      zip.file('xl/theme/theme1.xml', THEME_XML);
+      return await zip.generateAsync({ type: 'arraybuffer' });
+    }
+    return buffer;
+  } catch (e) {
+    console.error('No se pudo verificar/parchar el tema del archivo:', e);
+    return buffer;
+  }
+}
+
+runBtn.addEventListener('click', async () => {
+  resetLog();
+  runBtn.disabled = true;
+  statusEl.textContent = 'Procesando…';
+  try {
+    const wbInv = await loadWorkbookFromFile(files.inv);
+    const inv = loadInventario(wbInv);
+
+    const wbObs = await loadWorkbookFromFile(files.obs);
+    const result = fillObservation(wbObs, inv);
+
+    let buffer = await wbObs.xlsx.writeBuffer();
+    buffer = await patchMissingTheme(buffer);
+
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const outName = files.obs.name.replace(/\.xlsx$/i, '') + '_LLENO.xlsx';
+    const dl = document.getElementById('download-link2');
+    dl.href = url;
+    dl.download = outName;
+    document.getElementById('dl-title2').textContent = outName;
+    document.getElementById('dl-sub2').textContent = `${result.filledFoliar + result.filledNormal} filas llenadas (${result.filledFoliar} foliar, ${result.filledNormal} normal)`;
+    document.getElementById('download-box2').classList.add('show');
+    statusEl.textContent = 'Listo ✓';
+  } catch (err) {
+    log('ERROR: ' + err.message, 'err');
+    statusEl.textContent = 'Hubo un error — revisa el registro';
+    console.error(err);
+  } finally {
+    runBtn.disabled = false;
+  }
+});
+
+})();
+</script>
+<script>
+
+(function(){
+const files = { inv: null, obs: null, foliar: null, normal: null };
+
+function wireDrop(key, inputId, dropId, labelId) {
+  const drop = document.getElementById(dropId);
+  const input = document.getElementById(inputId);
+  const label = document.getElementById(labelId);
+  const setFile = (f) => {
+    if (!f) return;
+    files[key] = f;
+    label.innerHTML = '<b>' + f.name + '</b>';
+    drop.classList.add('filled');
+    updateRunState();
+  };
+  input.addEventListener('change', e => setFile(e.target.files[0]));
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault(); drop.classList.remove('drag');
+    if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+  });
+}
+wireDrop('inv', 'g3-file-inv', 'g3-drop-inv', 'g3-label-inv');
+wireDrop('obs', 'g3-file-obs', 'g3-drop-obs', 'g3-label-obs');
+wireDrop('foliar', 'g3-file-foliar', 'g3-drop-foliar', 'g3-label-foliar');
+wireDrop('normal', 'g3-file-normal', 'g3-drop-normal', 'g3-label-normal');
+
+const runBtn = document.getElementById('g3-run');
+const statusEl = document.getElementById('g3-status');
+function updateRunState() {
+  const ready = files.inv && files.obs && files.foliar && files.normal;
+  runBtn.disabled = !ready;
+  statusEl.textContent = ready ? 'Listo para procesar' : 'Sube los 4 archivos para continuar';
+}
+
+const logPanel = document.getElementById('g3-log-panel');
+const logEl = document.getElementById('g3-log');
+function log(msg, cls) {
+  const line = document.createElement('div');
+  line.className = 'log-line' + (cls ? ' ' + cls : '');
+  line.textContent = msg;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+function resetLog() {
+  logEl.innerHTML = '';
+  logPanel.classList.add('show');
+  document.getElementById('g3-download-box').classList.remove('show');
+}
+
+function normalize(name) { return String(name).replace(/[\s\-_().]+/g, '').toUpperCase(); }
+function findSheet(workbook, candidates) {
+  const map = {};
+  workbook.worksheets.forEach(ws => { map[normalize(ws.name)] = ws; });
+  for (const cand of candidates) { const key = normalize(cand); if (map[key]) return map[key]; }
+  return null;
+}
+function findHeaderRow(ws, requiredCols, maxScan = 20) {
+  const limit = Math.min(maxScan, ws.rowCount || maxScan);
+  const normReq = requiredCols.map(normalize);
+  for (let r = 1; r <= limit; r++) {
+    const row = ws.getRow(r);
+    const colMap = {};
+    row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+      if (cell.value !== null && cell.value !== undefined && cell.value !== '') colMap[normalize(cell.value)] = colNumber;
+    });
+    if (normReq.every(rc => rc in colMap)) return { headerRow: r, col: colMap };
+  }
+  return { headerRow: null, col: null };
+}
+function getCol(col, name) { return col[normalize(name)]; }
+function cellVal(ws, r, c) {
+  const v = ws.getRow(r).getCell(c).value;
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'object' && v.result !== undefined) return v.result;
+  return v;
+}
+function toIntIfWhole(v) {
+  if (typeof v === 'number' && Number.isInteger(v)) return v;
+  const n = Number(v);
+  if (!Number.isNaN(n) && Number.isInteger(n)) return n;
+  return v;
+}
+function plantNo(planta) {
+  const m = String(planta).match(/-(\d+)$/);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
+async function loadWorkbookFromFile(file) {
+  const buf = await file.arrayBuffer();
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buf);
+  return wb;
+}
+
+function loadPlotToGid(wb) {
+  const ws = findSheet(wb, ['Observation']);
+  if (!ws) throw new Error('No encontré una hoja "Observation" en el libro de campo.');
+  const { headerRow, col } = findHeaderRow(ws, ['PLOT_CODE', 'GID']);
+  if (!headerRow) throw new Error('No encontré columnas PLOT_CODE / GID en la hoja Observation.');
+  const pcCol = getCol(col, 'PLOT_CODE'), gidCol = getCol(col, 'GID');
+  const map = {};
+  for (let r = headerRow + 1; r <= ws.rowCount; r++) {
+    const pc = cellVal(ws, r, pcCol);
+    if (pc && !(pc in map)) map[pc] = cellVal(ws, r, gidCol);
+  }
+  log(`Libro de campo: ${Object.keys(map).length} PLOT_CODE con su GID de origen cargados.`);
+  return map;
+}
+
+function loadLabels(wb, label) {
+  const ws = wb.worksheets[0];
+  const { headerRow, col } = findHeaderRow(ws, ['GID', 'GUID', 'Immediate Source GID']);
+  if (!headerRow) throw new Error(`No encontré columnas GID / GUID / Immediate Source GID en el archivo de labels (${label}).`);
+  const gidCol = getCol(col, 'GID'), guidCol = getCol(col, 'GUID'), srcCol = getCol(col, 'Immediate Source GID');
+  const rows = [];
+  for (let r = headerRow + 1; r <= ws.rowCount; r++) {
+    const gid = cellVal(ws, r, gidCol);
+    if (gid === null) continue;
+    rows.push({ gid: toIntIfWhole(gid), guid: cellVal(ws, r, guidCol), src: String(cellVal(ws, r, srcCol)) });
+  }
+  log(`Labels (${label}): ${rows.length} GID nuevos leídos.`);
+  return rows;
+}
+
+function orderedRowsByType(ws, col, typeValue) {
+  const seenOrder = [];
+  const groups = {};
+  for (let r = 2; r <= ws.rowCount; r++) {
+    if (cellVal(ws, r, getCol(col, 'Type')) !== typeValue) continue;
+    const pc = cellVal(ws, r, getCol(col, 'PLOT_CODE'));
+    if (!(pc in groups)) { groups[pc] = []; seenOrder.push(pc); }
+    groups[pc].push(r);
+  }
+  const ordered = [];
+  for (const pc of seenOrder) {
+    const rows = groups[pc];
+    rows.sort((a, b) => plantNo(cellVal(ws, a, getCol(col, 'PLANTA'))) - plantNo(cellVal(ws, b, getCol(col, 'PLANTA'))));
+    ordered.push(...rows);
+  }
+  return ordered;
+}
+
+function validateAndPair(wsInv, col, plotToGid, rows, labels, label) {
+  if (rows.length !== labels.length) {
+    log(`ERROR: la cantidad de filas "${label}" en el inventario (${rows.length}) no coincide con la cantidad de GID en ese archivo de labels (${labels.length}). No se puede asignar con confianza.`, 'err');
+    return null;
+  }
+  let mismatches = 0;
+  const pairs = [];
+  rows.forEach((r, i) => {
+    const pc = cellVal(wsInv, r, getCol(col, 'PLOT_CODE'));
+    const expected = String(plotToGid[pc]);
+    const lab = labels[i];
+    if (lab.src !== expected) mismatches++;
+    pairs.push([r, lab.gid, lab.guid]);
+  });
+  if (mismatches) {
+    log(`AVISO (${label}): ${mismatches} de ${rows.length} filas tienen un Immediate Source GID distinto al esperado según el libro de campo — revisar antes de confiar en el orden.`, 'warn');
+  } else {
+    log(`${label}: las ${rows.length} filas validaron correctamente contra Immediate Source GID.`, 'ok');
+  }
+  return pairs;
+}
+
+
+const THEME_XML = `<?xml version="1.0"?>
+<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Office Theme">
+  <a:themeElements>
+    <a:clrScheme name="Office">
+      <a:dk1>
+        <a:sysClr val="windowText" lastClr="000000"/>
+      </a:dk1>
+      <a:lt1>
+        <a:sysClr val="window" lastClr="FFFFFF"/>
+      </a:lt1>
+      <a:dk2>
+        <a:srgbClr val="1F497D"/>
+      </a:dk2>
+      <a:lt2>
+        <a:srgbClr val="EEECE1"/>
+      </a:lt2>
+      <a:accent1>
+        <a:srgbClr val="4F81BD"/>
+      </a:accent1>
+      <a:accent2>
+        <a:srgbClr val="C0504D"/>
+      </a:accent2>
+      <a:accent3>
+        <a:srgbClr val="9BBB59"/>
+      </a:accent3>
+      <a:accent4>
+        <a:srgbClr val="8064A2"/>
+      </a:accent4>
+      <a:accent5>
+        <a:srgbClr val="4BACC6"/>
+      </a:accent5>
+      <a:accent6>
+        <a:srgbClr val="F79646"/>
+      </a:accent6>
+      <a:hlink>
+        <a:srgbClr val="0000FF"/>
+      </a:hlink>
+      <a:folHlink>
+        <a:srgbClr val="800080"/>
+      </a:folHlink>
+    </a:clrScheme>
+    <a:fontScheme name="Office">
+      <a:majorFont>
+        <a:latin typeface="Cambria"/>
+        <a:ea typeface=""/>
+        <a:cs typeface=""/>
+        <a:font script="Jpan" typeface="&#xFF2D;&#xFF33; &#xFF30;&#x30B4;&#x30B7;&#x30C3;&#x30AF;"/>
+        <a:font script="Hang" typeface="&#xB9D1;&#xC740; &#xACE0;&#xB515;"/>
+        <a:font script="Hans" typeface="&#x5B8B;&#x4F53;"/>
+        <a:font script="Hant" typeface="&#x65B0;&#x7D30;&#x660E;&#x9AD4;"/>
+        <a:font script="Arab" typeface="Times New Roman"/>
+        <a:font script="Hebr" typeface="Times New Roman"/>
+        <a:font script="Thai" typeface="Tahoma"/>
+        <a:font script="Ethi" typeface="Nyala"/>
+        <a:font script="Beng" typeface="Vrinda"/>
+        <a:font script="Gujr" typeface="Shruti"/>
+        <a:font script="Khmr" typeface="MoolBoran"/>
+        <a:font script="Knda" typeface="Tunga"/>
+        <a:font script="Guru" typeface="Raavi"/>
+        <a:font script="Cans" typeface="Euphemia"/>
+        <a:font script="Cher" typeface="Plantagenet Cherokee"/>
+        <a:font script="Yiii" typeface="Microsoft Yi Baiti"/>
+        <a:font script="Tibt" typeface="Microsoft Himalaya"/>
+        <a:font script="Thaa" typeface="MV Boli"/>
+        <a:font script="Deva" typeface="Mangal"/>
+        <a:font script="Telu" typeface="Gautami"/>
+        <a:font script="Taml" typeface="Latha"/>
+        <a:font script="Syrc" typeface="Estrangelo Edessa"/>
+        <a:font script="Orya" typeface="Kalinga"/>
+        <a:font script="Mlym" typeface="Kartika"/>
+        <a:font script="Laoo" typeface="DokChampa"/>
+        <a:font script="Sinh" typeface="Iskoola Pota"/>
+        <a:font script="Mong" typeface="Mongolian Baiti"/>
+        <a:font script="Viet" typeface="Times New Roman"/>
+        <a:font script="Uigh" typeface="Microsoft Uighur"/>
+      </a:majorFont>
+      <a:minorFont>
+        <a:latin typeface="Calibri"/>
+        <a:ea typeface=""/>
+        <a:cs typeface=""/>
+        <a:font script="Jpan" typeface="&#xFF2D;&#xFF33; &#xFF30;&#x30B4;&#x30B7;&#x30C3;&#x30AF;"/>
+        <a:font script="Hang" typeface="&#xB9D1;&#xC740; &#xACE0;&#xB515;"/>
+        <a:font script="Hans" typeface="&#x5B8B;&#x4F53;"/>
+        <a:font script="Hant" typeface="&#x65B0;&#x7D30;&#x660E;&#x9AD4;"/>
+        <a:font script="Arab" typeface="Arial"/>
+        <a:font script="Hebr" typeface="Arial"/>
+        <a:font script="Thai" typeface="Tahoma"/>
+        <a:font script="Ethi" typeface="Nyala"/>
+        <a:font script="Beng" typeface="Vrinda"/>
+        <a:font script="Gujr" typeface="Shruti"/>
+        <a:font script="Khmr" typeface="DaunPenh"/>
+        <a:font script="Knda" typeface="Tunga"/>
+        <a:font script="Guru" typeface="Raavi"/>
+        <a:font script="Cans" typeface="Euphemia"/>
+        <a:font script="Cher" typeface="Plantagenet Cherokee"/>
+        <a:font script="Yiii" typeface="Microsoft Yi Baiti"/>
+        <a:font script="Tibt" typeface="Microsoft Himalaya"/>
+        <a:font script="Thaa" typeface="MV Boli"/>
+        <a:font script="Deva" typeface="Mangal"/>
+        <a:font script="Telu" typeface="Gautami"/>
+        <a:font script="Taml" typeface="Latha"/>
+        <a:font script="Syrc" typeface="Estrangelo Edessa"/>
+        <a:font script="Orya" typeface="Kalinga"/>
+        <a:font script="Mlym" typeface="Kartika"/>
+        <a:font script="Laoo" typeface="DokChampa"/>
+        <a:font script="Sinh" typeface="Iskoola Pota"/>
+        <a:font script="Mong" typeface="Mongolian Baiti"/>
+        <a:font script="Viet" typeface="Arial"/>
+        <a:font script="Uigh" typeface="Microsoft Uighur"/>
+      </a:minorFont>
+    </a:fontScheme>
+    <a:fmtScheme name="Office">
+      <a:fillStyleLst>
+        <a:solidFill>
+          <a:schemeClr val="phClr"/>
+        </a:solidFill>
+        <a:gradFill rotWithShape="1">
+          <a:gsLst>
+            <a:gs pos="0">
+              <a:schemeClr val="phClr">
+                <a:tint val="50000"/>
+                <a:satMod val="300000"/>
+              </a:schemeClr>
+            </a:gs>
+            <a:gs pos="35000">
+              <a:schemeClr val="phClr">
+                <a:tint val="37000"/>
+                <a:satMod val="300000"/>
+              </a:schemeClr>
+            </a:gs>
+            <a:gs pos="100000">
+              <a:schemeClr val="phClr">
+                <a:tint val="15000"/>
+                <a:satMod val="350000"/>
+              </a:schemeClr>
+            </a:gs>
+          </a:gsLst>
+          <a:lin ang="16200000" scaled="1"/>
+        </a:gradFill>
+        <a:gradFill rotWithShape="1">
+          <a:gsLst>
+            <a:gs pos="0">
+              <a:schemeClr val="phClr">
+                <a:shade val="51000"/>
+                <a:satMod val="130000"/>
+              </a:schemeClr>
+            </a:gs>
+            <a:gs pos="80000">
+              <a:schemeClr val="phClr">
+                <a:shade val="93000"/>
+                <a:satMod val="130000"/>
+              </a:schemeClr>
+            </a:gs>
+            <a:gs pos="100000">
+              <a:schemeClr val="phClr">
+                <a:shade val="94000"/>
+                <a:satMod val="135000"/>
+              </a:schemeClr>
+            </a:gs>
+          </a:gsLst>
+          <a:lin ang="16200000" scaled="0"/>
+        </a:gradFill>
+      </a:fillStyleLst>
+      <a:lnStyleLst>
+        <a:ln w="9525" cap="flat" cmpd="sng" algn="ctr">
+          <a:solidFill>
+            <a:schemeClr val="phClr">
+              <a:shade val="95000"/>
+              <a:satMod val="105000"/>
+            </a:schemeClr>
+          </a:solidFill>
+          <a:prstDash val="solid"/>
+        </a:ln>
+        <a:ln w="25400" cap="flat" cmpd="sng" algn="ctr">
+          <a:solidFill>
+            <a:schemeClr val="phClr"/>
+          </a:solidFill>
+          <a:prstDash val="solid"/>
+        </a:ln>
+        <a:ln w="38100" cap="flat" cmpd="sng" algn="ctr">
+          <a:solidFill>
+            <a:schemeClr val="phClr"/>
+          </a:solidFill>
+          <a:prstDash val="solid"/>
+        </a:ln>
+      </a:lnStyleLst>
+      <a:effectStyleLst>
+        <a:effectStyle>
+          <a:effectLst>
+            <a:outerShdw blurRad="40000" dist="20000" dir="5400000" rotWithShape="0">
+              <a:srgbClr val="000000">
+                <a:alpha val="38000"/>
+              </a:srgbClr>
+            </a:outerShdw>
+          </a:effectLst>
+        </a:effectStyle>
+        <a:effectStyle>
+          <a:effectLst>
+            <a:outerShdw blurRad="40000" dist="23000" dir="5400000" rotWithShape="0">
+              <a:srgbClr val="000000">
+                <a:alpha val="35000"/>
+              </a:srgbClr>
+            </a:outerShdw>
+          </a:effectLst>
+        </a:effectStyle>
+        <a:effectStyle>
+          <a:effectLst>
+            <a:outerShdw blurRad="40000" dist="23000" dir="5400000" rotWithShape="0">
+              <a:srgbClr val="000000">
+                <a:alpha val="35000"/>
+              </a:srgbClr>
+            </a:outerShdw>
+          </a:effectLst>
+          <a:scene3d>
+            <a:camera prst="orthographicFront">
+              <a:rot lat="0" lon="0" rev="0"/>
+            </a:camera>
+            <a:lightRig rig="threePt" dir="t">
+              <a:rot lat="0" lon="0" rev="1200000"/>
+            </a:lightRig>
+          </a:scene3d>
+          <a:sp3d>
+            <a:bevelT w="63500" h="25400"/>
+          </a:sp3d>
+        </a:effectStyle>
+      </a:effectStyleLst>
+      <a:bgFillStyleLst>
+        <a:solidFill>
+          <a:schemeClr val="phClr"/>
+        </a:solidFill>
+        <a:gradFill rotWithShape="1">
+          <a:gsLst>
+            <a:gs pos="0">
+              <a:schemeClr val="phClr">
+                <a:tint val="40000"/>
+                <a:satMod val="350000"/>
+              </a:schemeClr>
+            </a:gs>
+            <a:gs pos="40000">
+              <a:schemeClr val="phClr">
+                <a:tint val="45000"/>
+                <a:shade val="99000"/>
+                <a:satMod val="350000"/>
+              </a:schemeClr>
+            </a:gs>
+            <a:gs pos="100000">
+              <a:schemeClr val="phClr">
+                <a:shade val="20000"/>
+                <a:satMod val="255000"/>
+              </a:schemeClr>
+            </a:gs>
+          </a:gsLst>
+          <a:path path="circle">
+            <a:fillToRect l="50000" t="-80000" r="50000" b="180000"/>
+          </a:path>
+        </a:gradFill>
+        <a:gradFill rotWithShape="1">
+          <a:gsLst>
+            <a:gs pos="0">
+              <a:schemeClr val="phClr">
+                <a:tint val="80000"/>
+                <a:satMod val="300000"/>
+              </a:schemeClr>
+            </a:gs>
+            <a:gs pos="100000">
+              <a:schemeClr val="phClr">
+                <a:shade val="30000"/>
+                <a:satMod val="200000"/>
+              </a:schemeClr>
+            </a:gs>
+          </a:gsLst>
+          <a:path path="circle">
+            <a:fillToRect l="50000" t="50000" r="50000" b="50000"/>
+          </a:path>
+        </a:gradFill>
+      </a:bgFillStyleLst>
+    </a:fmtScheme>
+  </a:themeElements>
+  <a:objectDefaults/>
+  <a:extraClrSchemeLst/>
+</a:theme>
+`;
+async function patchMissingTheme(buffer) {
+  try {
+    const zip = await JSZip.loadAsync(buffer);
+    const ctFile = zip.file('[Content_Types].xml');
+    if (!ctFile) return buffer;
+    const contentTypes = await ctFile.async('string');
+    const needsTheme = /PartName="\/xl\/theme\/theme1\.xml"/.test(contentTypes) && !zip.file('xl/theme/theme1.xml');
+    if (needsTheme) {
+      zip.file('xl/theme/theme1.xml', THEME_XML);
+      return await zip.generateAsync({ type: 'arraybuffer' });
+    }
+    return buffer;
+  } catch (e) {
+    console.error('No se pudo verificar/parchar el tema del archivo:', e);
+    return buffer;
+  }
+}
+
+runBtn.addEventListener('click', async () => {
+  resetLog();
+  runBtn.disabled = true;
+  statusEl.textContent = 'Procesando…';
+  try {
+    const wbObs = await loadWorkbookFromFile(files.obs);
+    const plotToGid = loadPlotToGid(wbObs);
+
+    const wbFoliar = await loadWorkbookFromFile(files.foliar);
+    const foliarLabels = loadLabels(wbFoliar, 'Foliar');
+
+    const wbNormal = await loadWorkbookFromFile(files.normal);
+    const normalLabels = loadLabels(wbNormal, 'Normal');
+
+    const wbInv = await loadWorkbookFromFile(files.inv);
+    const wsInv = findSheet(wbInv, ['Hoja1']) || wbInv.worksheets[0];
+    const { headerRow, col } = findHeaderRow(wsInv, ['OBS_UNIT_ID', 'Type', 'PLOT_CODE', 'PLANTA']);
+    if (!headerRow) throw new Error('No encontré columnas OBS_UNIT_ID / Type / PLOT_CODE / PLANTA en el inventario.');
+
+    const foliarRows = orderedRowsByType(wsInv, col, 'Muestreo foliar');
+    const normalRows = orderedRowsByType(wsInv, col, 'Normal');
+    log(`Inventario: ${foliarRows.length} filas "Muestreo foliar", ${normalRows.length} filas "Normal".`);
+
+    const foliarPairs = validateAndPair(wsInv, col, plotToGid, foliarRows, foliarLabels, 'Foliar');
+    const normalPairs = validateAndPair(wsInv, col, plotToGid, normalRows, normalLabels, 'Normal');
+    if (!foliarPairs || !normalPairs) {
+      statusEl.textContent = 'Hubo un error — revisa el registro';
+      return;
+    }
+
+    let gidCol = getCol(col, 'GID_GENERADO');
+    let guidCol = getCol(col, 'GUID_GENERADO');
+    if (!gidCol) { gidCol = wsInv.columnCount + 1; wsInv.getRow(headerRow).getCell(gidCol).value = 'GID_GENERADO'; }
+    if (!guidCol) { guidCol = wsInv.columnCount + 1; wsInv.getRow(headerRow).getCell(guidCol).value = 'GUID_GENERADO'; }
+
+    [...foliarPairs, ...normalPairs].forEach(([r, gid, guid]) => {
+      wsInv.getRow(r).getCell(gidCol).value = gid;
+      wsInv.getRow(r).getCell(guidCol).value = guid;
+    });
+    log(`GID_GENERADO / GUID_GENERADO llenados para ${foliarPairs.length + normalPairs.length} filas.`, 'ok');
+
+    let buffer = await wbInv.xlsx.writeBuffer();
+    buffer = await patchMissingTheme(buffer);
+
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const outName = files.inv.name.replace(/\.xlsx$/i, '') + '_CON_GID.xlsx';
+    const dl = document.getElementById('g3-download-link');
+    dl.href = url;
+    dl.download = outName;
+    document.getElementById('g3-dl-title').textContent = outName;
+    document.getElementById('g3-dl-sub').textContent = `${foliarPairs.length + normalPairs.length} filas con GID nuevo asignado`;
+    document.getElementById('g3-download-box').classList.add('show');
+    statusEl.textContent = 'Listo ✓';
+  } catch (err) {
+    log('ERROR: ' + err.message, 'err');
+    statusEl.textContent = 'Hubo un error — revisa el registro';
+    console.error(err);
+  } finally {
+    runBtn.disabled = false;
+  }
+});
+})();
+
+</script>
+</body>
+</html>
