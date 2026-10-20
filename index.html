@@ -260,7 +260,7 @@
 
 <div class="wrap tab-panel" id="tab-inventario">
   <h1>Llenado de Inventario en Libro de Campo</h1>
-  <p class="subtitle">Sube el inventario inicial y el libro de campo. Se marca Total_Psample = 1 para las filas "MF" (muestreo foliar), NPSEL = 1 para las "Normal" y NPSELBK = # MAZ para las "Bulk", cruzando por OBS_UNIT_ID — y se avisa si algún OBS_UNIT_ID del inventario no aparece en el libro de campo. Todo corre en tu navegador, ningún archivo se envía a ningún servidor.</p>
+  <p class="subtitle">Sube el inventario inicial y el libro de campo. Se marca Total_Psample = 1 para las filas "MF" (muestreo foliar), NPSEL = 1 para las "Normal" y NPSELBK = 1 para las "Bulk" (un bulk = 1 GID), cruzando por OBS_UNIT_ID — y se avisa si algún OBS_UNIT_ID del inventario no aparece en el libro de campo. Todo corre en tu navegador, ningún archivo se envía a ningún servidor.</p>
 
   <div class="step">
     <div class="step-head"><span class="step-num">1</span><span class="step-title">Inventario inicial</span></div>
@@ -1285,7 +1285,7 @@ async function loadWorkbookFromFile(file) {
 // Type del inventario:
 //   MF / Muestreo foliar / Foliar -> foliar  -> Total_Psample = 1
 //   Normal                        -> normal  -> NPSEL = 1
-//   Bulk                          -> bulk    -> NPSELBK = # MAZ (mazorcas combinadas en ese bulk)
+//   Bulk                          -> bulk    -> NPSELBK = 1 (un bulk = 1 GID, aunque combine varias mazorcas)
 function normType(t) {
   const s = normalize(t);
   if (s === 'MF' || s === 'MUESTREOFOLIAR' || s === 'FOLIAR') return 'foliar';
@@ -1304,7 +1304,6 @@ function loadInventario(wb) {
   const inv = {};
   let unparsedType = 0;
   const unparsedSamples = [];
-  const bulkSinMaz = [];
   const counts = { foliar: 0, normal: 0, bulk: 0 };
   for (let r = headerRow + 1; r <= ws.rowCount; r++) {
     const id = cellVal(ws, r, idCol);
@@ -1316,15 +1315,8 @@ function loadInventario(wb) {
       if (unparsedSamples.length < 10) unparsedSamples.push(`${id} → "${rawType}"`);
       continue;
     }
-    let maz = null;
-    if (t === 'bulk') {
-      const rawMaz = mazCol ? cellVal(ws, r, mazCol) : null;
-      maz = Number(rawMaz);
-      if (rawMaz === null || rawMaz === '' || !Number.isFinite(maz) || maz <= 0) {
-        bulkSinMaz.push(`${id} (fila ${r}) → # MAZ = "${rawMaz ?? ''}"`);
-        continue; // no se adivina: se omite y se avisa
-      }
-    }
+    // # MAZ solo es informativo: un bulk = 1 GID aunque combine varias mazorcas.
+    const maz = (t === 'bulk' && mazCol) ? Number(cellVal(ws, r, mazCol)) || 0 : 0;
     inv[id] = { type: t, plotCode: cellVal(ws, r, plotCol), maz };
     counts[t]++;
   }
@@ -1332,11 +1324,6 @@ function loadInventario(wb) {
   if (unparsedType) {
     log(`AVISO: ${unparsedType} filas con un valor de Type no reconocido (ni MF, Normal ni Bulk), se omitieron:`, 'warn');
     unparsedSamples.forEach(s => log('   ' + s, 'warn'));
-  }
-  if (bulkSinMaz.length) {
-    if (!mazCol) log('AVISO: el inventario no tiene columna "# MAZ" — no se puede llenar NPSELBK para las filas Bulk.', 'warn');
-    log(`AVISO: ${bulkSinMaz.length} filas Bulk sin un # MAZ válido, se omitieron (revisar):`, 'warn');
-    bulkSinMaz.slice(0, 15).forEach(s => log('   ' + s, 'warn'));
   }
   return inv;
 }
@@ -1383,13 +1370,13 @@ function fillObservation(wb, inv) {
       plotMismatch.push(`${id}: inventario dice ${info.plotCode}, libro de campo dice ${plotObs}`);
     }
     if (info.type === 'foliar') { ws.getRow(r).getCell(tpCol).value = 1; filledFoliar++; }
-    else if (info.type === 'bulk') { ws.getRow(r).getCell(bkCol).value = info.maz; filledBulk++; mazTotal += info.maz; }
+    else if (info.type === 'bulk') { ws.getRow(r).getCell(bkCol).value = 1; filledBulk++; mazTotal += info.maz; }
     else { ws.getRow(r).getCell(npCol).value = 1; filledNormal++; }
   }
 
   log(`Llenados como foliar (Total_Psample = 1): ${filledFoliar}`, 'ok');
   log(`Llenados como normal (NPSEL = 1): ${filledNormal}`, 'ok');
-  log(`Llenados como bulk (NPSELBK = # MAZ): ${filledBulk} filas, ${mazTotal} mazorcas en total`, 'ok');
+  log(`Llenados como bulk (NPSELBK = 1): ${filledBulk}` + (mazTotal ? ` (combinan ${mazTotal} mazorcas según # MAZ, 1 GID por bulk)` : ''), 'ok');
   if (notFound.length) {
     log(`AVISO: ${notFound.length} OBS_UNIT_ID del inventario NO se encontraron en el libro de campo (revisar, puede ser el archivo equivocado o un typo):`, 'warn');
     notFound.slice(0, 15).forEach(id => log('   ' + id, 'warn'));
